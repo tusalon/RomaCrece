@@ -1,0 +1,22 @@
+# Dependencies and framework output
+node_modules/
+.next/
+dist/
+out/
+
+# Local Vite, Cloudflare and Sites state
+.vite/
+.vinext/
+.wrangler/
+.sites-runtime/
+
+# Environment files (examples remain trackable)
+.env
+.env.*
+!.env.example
+
+# TypeScript, logs and operating-system files
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db

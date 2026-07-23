@@ -49,11 +49,27 @@ Inicia el entorno de desarrollo:
 npm run dev
 ```
 
+Para probar exactamente la versión estática de GitHub Pages:
+
+```bash
+npm run dev:pages
+```
+
 Genera la versión de producción:
 
 ```bash
 npm run build
 ```
+
+Genera la publicación de GitHub Pages dentro de `docs/`:
+
+```bash
+npm run build:pages
+```
+
+El build configura automáticamente la ruta base `/RomaCrece/` y copia el
+archivo `.nojekyll`. Los archivos de `docs/assets/` son generados y no deben
+editarse manualmente.
 
 ## Archivos principales
 

@@ -1303,11 +1303,13 @@ export default function Home() {
       />
       <div className="main-area">
         <Header openMenu={() => setMobileOpen(true)} />
-        {activeView === "inicio" && <HomeView onNavigate={setActiveView} />}
-        {activeView === "auditoria" && <AuditView onNavigate={setActiveView} />}
-        {activeView === "ideas" && <IdeasView onNavigate={setActiveView} />}
-        {activeView === "planificador" && <PlannerView />}
-        {activeView === "resultados" && <ResultsView />}
+        <div className="view-stage" key={activeView}>
+          {activeView === "inicio" && <HomeView onNavigate={setActiveView} />}
+          {activeView === "auditoria" && <AuditView onNavigate={setActiveView} />}
+          {activeView === "ideas" && <IdeasView onNavigate={setActiveView} />}
+          {activeView === "planificador" && <PlannerView />}
+          {activeView === "resultados" && <ResultsView />}
+        </div>
       </div>
       <nav className="mobile-nav" aria-label="Navegación móvil">
         {navItems.map((item) => {

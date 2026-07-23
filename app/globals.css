@@ -15,6 +15,83 @@
   --shadow: 0 16px 44px rgba(16, 24, 40, 0.07);
 }
 
+@property --score {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 78;
+}
+
+/* Shared motion primitives for navigation, content and data visualizations. */
+.view-stage {
+  transform-origin: 50% 12%;
+  animation: view-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.view-stage .page-content > * {
+  animation: section-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.view-stage .page-content > :nth-child(2) { animation-delay: 70ms; }
+.view-stage .page-content > :nth-child(3) { animation-delay: 130ms; }
+.view-stage .page-content > :nth-child(4) { animation-delay: 190ms; }
+.view-stage .page-content > :nth-child(5) { animation-delay: 250ms; }
+
+@keyframes view-enter {
+  from { opacity: 0; filter: blur(4px); transform: translateY(14px) scale(0.992); }
+  to { opacity: 1; filter: blur(0); transform: translateY(0) scale(1); }
+}
+
+@keyframes section-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes brand-float {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-3px) rotate(-2deg); }
+}
+
+@keyframes brand-shine {
+  0%, 68% { transform: translateX(-46px) rotate(28deg); }
+  88%, 100% { transform: translateX(52px) rotate(28deg); }
+}
+
+@keyframes nav-pop {
+  from { transform: scale(0.72) rotate(-8deg); }
+  70% { transform: scale(1.12) rotate(3deg); }
+  to { transform: scale(1) rotate(0); }
+}
+
+@keyframes card-pop {
+  from { opacity: 0; transform: translateY(22px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes score-arrive {
+  from { opacity: 0; transform: rotate(-22deg) scale(0.72); }
+  to { opacity: 1; transform: rotate(0) scale(1); }
+}
+
+@keyframes score-fill {
+  from { --score: 0; }
+  to { --score: 78; }
+}
+
+@keyframes bar-grow {
+  from { opacity: 0.35; transform: scaleY(0.04); }
+  to { opacity: 1; transform: scaleY(1); }
+}
+
+@keyframes horizontal-grow {
+  from { opacity: 0.35; transform: scaleX(0.04); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@keyframes funnel-grow {
+  from { opacity: 0; transform: scaleX(0.15); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -85,6 +162,16 @@ button {
   background: linear-gradient(145deg, #f24c9b, #d51f77);
   box-shadow: 0 8px 20px rgba(232, 51, 135, 0.3);
   color: white;
+  animation: brand-float 3.8s ease-in-out infinite;
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 55px;
+  background: rgba(255, 255, 255, 0.34);
+  animation: brand-shine 4.6s ease-in-out infinite;
 }
 
 .brand-mark span {
@@ -158,6 +245,7 @@ button {
 
 .nav-item.active svg {
   color: #ff5aa8;
+  animation: nav-pop 420ms cubic-bezier(0.2, 1.6, 0.4, 1);
 }
 
 .nav-item em {
@@ -469,6 +557,73 @@ button {
   transform: translateY(-1px);
 }
 
+.primary-button,
+.secondary-button,
+.soft-button,
+.task-button,
+.use-button,
+.filter-button,
+.week-switcher > button,
+.icon-button,
+.menu-button {
+  transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.primary-button:active,
+.secondary-button:active,
+.soft-button:active,
+.task-button:active,
+.use-button:active,
+.filter-button:active,
+.week-switcher > button:active,
+.icon-button:active,
+.menu-button:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.metric-card,
+.idea-card,
+.finding-card,
+.insight-card,
+.result-metrics article,
+.calendar-item,
+.category-row {
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.metric-card:hover,
+.idea-card:hover,
+.finding-card:hover,
+.insight-card:hover,
+.result-metrics article:hover,
+.calendar-item:hover,
+.category-row:hover {
+  transform: translateY(-5px);
+  border-color: rgba(232, 51, 135, 0.24);
+  box-shadow: 0 20px 44px rgba(16, 24, 40, 0.11);
+}
+
+.view-stage :is(.metric-card, .idea-card, .finding-card, .result-metrics article, .insight-card) {
+  animation: card-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.view-stage :is(.metric-card, .idea-card, .finding-card, .result-metrics article, .insight-card):nth-child(2) { animation-delay: 90ms; }
+.view-stage :is(.metric-card, .idea-card, .finding-card, .result-metrics article, .insight-card):nth-child(3) { animation-delay: 160ms; }
+.view-stage :is(.metric-card, .idea-card, .finding-card, .result-metrics article, .insight-card):nth-child(4) { animation-delay: 230ms; }
+
+.view-stage .score-ring {
+  animation:
+    score-arrive 900ms cubic-bezier(0.2, 1.4, 0.4, 1) 120ms both,
+    score-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.view-stage .large-score {
+  animation: score-arrive 900ms cubic-bezier(0.2, 1.4, 0.4, 1) 120ms both;
+}
+
 .hero-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.75fr) minmax(270px, 0.75fr);
@@ -560,13 +715,18 @@ button {
 }
 
 .score-ring {
+  --score: 78;
   display: grid;
   width: 142px;
   height: 142px;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(var(--pink) 0 78%, rgba(232, 51, 135, 0.12) 78% 100%);
+  background: conic-gradient(
+    var(--pink) 0 calc(var(--score) * 1%),
+    rgba(232, 51, 135, 0.12) calc(var(--score) * 1%) 100%
+  );
   box-shadow: 0 12px 35px rgba(232, 51, 135, 0.14);
+  animation: score-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .score-ring::before {
@@ -1265,6 +1425,8 @@ button {
   display: block;
   height: 100%;
   border-radius: inherit;
+  transform-origin: left;
+  animation: horizontal-grow 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .findings-section {
@@ -2425,7 +2587,16 @@ button {
   border-radius: 8px 8px 3px 3px;
   background: linear-gradient(180deg, #ed73ad, #e83387);
   opacity: 0.46;
+  transform-origin: bottom;
+  animation: bar-grow 850ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+.bar-column:nth-child(2) > span { animation-delay: 70ms; }
+.bar-column:nth-child(3) > span { animation-delay: 140ms; }
+.bar-column:nth-child(4) > span { animation-delay: 210ms; }
+.bar-column:nth-child(5) > span { animation-delay: 280ms; }
+.bar-column:nth-child(6) > span { animation-delay: 350ms; }
+.bar-column:nth-child(7) > span { animation-delay: 420ms; }
 
 .bar-column > span.best {
   box-shadow: 0 8px 18px rgba(232, 51, 135, 0.18);
@@ -2469,7 +2640,13 @@ button {
   border-bottom: 1px solid rgba(255, 255, 255, 0.45);
   background: linear-gradient(90deg, #f7d8e7, #f6c3dc);
   clip-path: polygon(6% 0, 94% 0, 100% 100%, 0 100%);
+  transform-origin: left;
+  animation: funnel-grow 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+.funnel > div:nth-child(2) { animation-delay: 110ms; }
+.funnel > div:nth-child(3) { animation-delay: 220ms; }
+.funnel > div:nth-child(4) { animation-delay: 330ms; }
 
 .funnel > div:nth-child(2) {
   background: linear-gradient(90deg, #eadffc, #d9c8f7);
@@ -2974,5 +3151,6 @@ button {
   * {
     scroll-behavior: auto !important;
     transition: none !important;
+    animation: none !important;
   }
 }
