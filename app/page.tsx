@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import {
   AlertCircle,
   ArrowRight,
@@ -50,6 +51,15 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import {
+  STORAGE_KEY,
+  businessInitials,
+  calculateAudit,
+  initialAuditAnswers,
+  type AuditAnswers,
+  type BusinessProfile,
+  type RomaCreceData,
+} from "./audit-model";
 
 type View = "inicio" | "auditoria" | "ideas" | "planificador" | "resultados";
 
@@ -100,6 +110,154 @@ const metrics = [
   },
 ];
 
+const emptyBusiness: BusinessProfile = {
+  name: "",
+  category: "Salón de belleza",
+  city: "",
+  objective: "Conseguir más reservas",
+  instagram: "",
+};
+
+function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; onComplete: (data: RomaCreceData) => void }) {
+  const [step, setStep] = useState<1 | 2>(initialData ? 2 : 1);
+  const [business, setBusiness] = useState(initialData?.business ?? emptyBusiness);
+  const [answers, setAnswers] = useState(initialData?.answers ?? initialAuditAnswers);
+
+  const updateBusiness = (field: keyof BusinessProfile, value: string) => {
+    setBusiness((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateAnswer = <Key extends keyof AuditAnswers>(field: Key, value: AuditAnswers[Key]) => {
+    setAnswers((current) => ({ ...current, [field]: value }));
+  };
+
+  const continueToAudit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setStep(2);
+  };
+
+  const finishOnboarding = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const normalizedBusiness = {
+      ...business,
+      name: business.name.trim(),
+      city: business.city.trim(),
+      instagram: business.instagram.trim().replace(/^@/, ""),
+    };
+    onComplete({
+      business: normalizedBusiness,
+      answers,
+      audit: calculateAudit(answers),
+    });
+  };
+
+  return (
+    <main className="onboarding-shell">
+      <section className="onboarding-brand-panel">
+        <Brand />
+        <div className="onboarding-promise">
+          <span className="onboarding-kicker"><Sparkles size={15} /> PRIMER DIAGNÓSTICO</span>
+          <h1>Convierte tu presencia digital en un plan claro para crecer.</h1>
+          <p>
+            Cuéntanos cómo funciona hoy tu negocio. RomaCrece organizará tus
+            respuestas, calculará tu puntuación y señalará las tres mejoras con mayor impacto.
+          </p>
+          <div className="onboarding-benefits">
+            <span><CheckCircle2 size={17} /> Resultado inmediato</span>
+            <span><CheckCircle2 size={17} /> Recomendaciones personalizadas</span>
+            <span><CheckCircle2 size={17} /> Datos guardados en este dispositivo</span>
+          </div>
+        </div>
+        <small>RomaCrece · Parte del ecosistema RomaHub</small>
+      </section>
+
+      <section className="onboarding-form-panel">
+        <div className="onboarding-form-wrap">
+          <div className="onboarding-progress" aria-label={`Paso ${step} de 2`}>
+            <span className="active">1</span><i className={step === 2 ? "active" : ""} /><span className={step === 2 ? "active" : ""}>2</span>
+          </div>
+          <div className="onboarding-heading">
+            <span>PASO {step} DE 2</span>
+            <h2>{step === 1 ? "Conozcamos tu negocio" : "Auditemos tu Instagram"}</h2>
+            <p>
+              {step === 1
+                ? "Estos datos nos ayudan a adaptar el diagnóstico a tu realidad."
+                : "Usa estimados si todavía no tienes todas las métricas exactas."}
+            </p>
+          </div>
+
+          {step === 1 ? (
+            <form className="onboarding-form" onSubmit={continueToAudit}>
+              <label className="onboarding-field wide">
+                <span>Nombre del negocio</span>
+                <input required value={business.name} onChange={(event) => updateBusiness("name", event.target.value)} placeholder="Ej.: Bella Studio" />
+              </label>
+              <label className="onboarding-field">
+                <span>Tipo de negocio</span>
+                <select value={business.category} onChange={(event) => updateBusiness("category", event.target.value)}>
+                  <option>Salón de belleza</option>
+                  <option>Estudio de uñas</option>
+                  <option>Barbería</option>
+                  <option>Spa y estética</option>
+                  <option>Profesional independiente</option>
+                  <option>Otro negocio de belleza</option>
+                </select>
+              </label>
+              <label className="onboarding-field">
+                <span>Ciudad</span>
+                <input required value={business.city} onChange={(event) => updateBusiness("city", event.target.value)} placeholder="Ej.: La Habana" />
+              </label>
+              <label className="onboarding-field wide">
+                <span>Cuenta de Instagram</span>
+                <div className="instagram-input"><Instagram size={17} /><b>@</b><input required value={business.instagram} onChange={(event) => updateBusiness("instagram", event.target.value)} placeholder="bellastudio" /></div>
+              </label>
+              <label className="onboarding-field wide">
+                <span>Objetivo principal</span>
+                <select value={business.objective} onChange={(event) => updateBusiness("objective", event.target.value)}>
+                  <option>Conseguir más reservas</option>
+                  <option>Aumentar el alcance</option>
+                  <option>Crear una comunidad</option>
+                  <option>Vender productos o servicios</option>
+                  <option>Publicar con mayor constancia</option>
+                </select>
+              </label>
+              <button className="primary-button onboarding-submit" type="submit">Continuar con la auditoría <ArrowRight size={17} /></button>
+            </form>
+          ) : (
+            <form className="onboarding-form audit-form" onSubmit={finishOnboarding}>
+              <div className="audit-question wide toggle-question">
+                <div><strong>¿Tu biografía explica qué haces y dónde trabajas?</strong><small>Debe ser fácil entender tus servicios en pocos segundos.</small></div>
+                <button type="button" className={answers.bioComplete ? "yes" : ""} onClick={() => updateAnswer("bioComplete", !answers.bioComplete)}>{answers.bioComplete ? "Sí" : "No"}</button>
+              </div>
+              <div className="audit-question wide toggle-question">
+                <div><strong>¿Tienes un enlace directo para reservar?</strong><small>Puede dirigir a RservasRoma, WhatsApp o una agenda digital.</small></div>
+                <button type="button" className={answers.bookingLink ? "yes" : ""} onClick={() => updateAnswer("bookingLink", !answers.bookingLink)}>{answers.bookingLink ? "Sí" : "No"}</button>
+              </div>
+              <label className="onboarding-field range-field">
+                <span>Consistencia visual <strong>{answers.visualConsistency}/5</strong></span>
+                <input type="range" min="1" max="5" value={answers.visualConsistency} onChange={(event) => updateAnswer("visualConsistency", Number(event.target.value))} />
+              </label>
+              <label className="onboarding-field range-field">
+                <span>Calidad del contenido <strong>{answers.contentQuality}/5</strong></span>
+                <input type="range" min="1" max="5" value={answers.contentQuality} onChange={(event) => updateAnswer("contentQuality", Number(event.target.value))} />
+              </label>
+              <label className="onboarding-field"><span>Publicaciones por semana</span><input type="number" min="0" max="14" required value={answers.postsPerWeek} onChange={(event) => updateAnswer("postsPerWeek", Number(event.target.value))} /></label>
+              <label className="onboarding-field"><span>Engagement aproximado (%)</span><input type="number" min="0" max="30" step="0.1" required value={answers.engagementRate} onChange={(event) => updateAnswer("engagementRate", Number(event.target.value))} /></label>
+              <label className="onboarding-field"><span>Captions con llamada a la acción (%)</span><input type="number" min="0" max="100" required value={answers.captionsWithCta} onChange={(event) => updateAnswer("captionsWithCta", Number(event.target.value))} /></label>
+              <label className="onboarding-field"><span>Mensajes recibidos al mes</span><input type="number" min="0" required value={answers.messagesPerMonth} onChange={(event) => updateAnswer("messagesPerMonth", Number(event.target.value))} /></label>
+              <label className="onboarding-field wide"><span>Reservas obtenidas desde Instagram al mes</span><input type="number" min="0" required value={answers.bookingsPerMonth} onChange={(event) => updateAnswer("bookingsPerMonth", Number(event.target.value))} /></label>
+              <div className="onboarding-actions wide">
+                <button className="secondary-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={17} /> Volver</button>
+                <button className="primary-button" type="submit">Calcular mi puntuación <Sparkles size={17} /></button>
+              </div>
+            </form>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 const weekContent = [
   {
     day: "Hoy",
@@ -146,16 +304,19 @@ function Brand() {
 }
 
 function Sidebar({
+  business,
   activeView,
   onNavigate,
   mobileOpen,
   closeMobile,
 }: {
+  business: BusinessProfile;
   activeView: View;
   onNavigate: (view: View) => void;
   mobileOpen: boolean;
   closeMobile: () => void;
 }) {
+  const initials = businessInitials(business.name);
   return (
     <>
       {mobileOpen && (
@@ -220,10 +381,10 @@ function Sidebar({
             <span>Configuración</span>
           </button>
           <div className="profile">
-            <div className="profile-avatar">BS</div>
+            <div className="profile-avatar">{initials}</div>
             <div className="profile-copy">
-              <strong>Bella Studio</strong>
-              <span>Plan Pro</span>
+              <strong>{business.name}</strong>
+              <span>{business.category}</span>
             </div>
             <LogOut size={17} />
           </div>
@@ -233,7 +394,8 @@ function Sidebar({
   );
 }
 
-function Header({ openMenu }: { openMenu: () => void }) {
+function Header({ business, openMenu }: { business: BusinessProfile; openMenu: () => void }) {
+  const initials = businessInitials(business.name);
   return (
     <header className="topbar">
       <button className="menu-button" aria-label="Abrir menú" onClick={openMenu}>
@@ -250,31 +412,31 @@ function Header({ openMenu }: { openMenu: () => void }) {
       <div className="topbar-actions">
         <div className="instagram-pill">
           <Instagram size={17} />
-          <span>@bellastudio</span>
+          <span>@{business.instagram}</span>
           <Check size={13} />
         </div>
         <button className="icon-button" aria-label="Notificaciones">
           <Bell size={19} />
           <span className="notification-dot" />
         </button>
-        <div className="topbar-avatar">BS</div>
+        <div className="topbar-avatar">{initials}</div>
       </div>
     </header>
   );
 }
 
-function ScoreRing() {
+function ScoreRing({ score }: { score: number }) {
   return (
-    <div className="score-ring" aria-label="Puntuación de auditoría: 78 de 100">
+    <div className="score-ring" style={{ "--score-target": score } as React.CSSProperties} aria-label={`Puntuación de auditoría: ${score} de 100`}>
       <div>
-        <strong>78</strong>
+        <strong>{score}</strong>
         <span>/100</span>
       </div>
     </div>
   );
 }
 
-function HomeView({ onNavigate }: { onNavigate: (view: View) => void }) {
+function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view: View) => void }) {
   const [completed, setCompleted] = useState(false);
 
   return (
@@ -285,10 +447,10 @@ function HomeView({ onNavigate }: { onNavigate: (view: View) => void }) {
             <span className="status-dot" />
             TU CENTRO DE CRECIMIENTO
           </div>
-          <h1>Buenos días, Bella Studio <span>✦</span></h1>
+          <h1>Buenos días, {data.business.name} <span>✦</span></h1>
           <p>
-            Tu cuenta está creciendo. Hoy tienes una oportunidad clara para
-            convertir más visitas en reservas.
+            Tu objetivo es {data.business.objective.toLowerCase()}. Hoy tienes una
+            oportunidad clara para fortalecer tu presencia digital.
           </p>
         </div>
         <button className="primary-button" onClick={() => onNavigate("ideas")}>
@@ -304,10 +466,10 @@ function HomeView({ onNavigate }: { onNavigate: (view: View) => void }) {
               <ScanSearch size={17} />
               AUDITORÍA DE INSTAGRAM
             </div>
-            <h2>Tu perfil tiene una buena base. Ahora vamos por más.</h2>
+            <h2>{data.audit.score >= 75 ? "Tu perfil tiene una buena base. Ahora vamos por más." : "Ya sabemos dónde concentrar tus próximos esfuerzos."}</h2>
             <p>
-              Detectamos <strong>3 oportunidades</strong> para mejorar tu
-              conversión esta semana.
+              Detectamos <strong>{data.audit.recommendations.length} oportunidades</strong> para avanzar
+              hacia tu objetivo esta semana.
             </p>
             <button className="soft-button" onClick={() => onNavigate("auditoria")}>
               Ver auditoría completa
@@ -315,7 +477,7 @@ function HomeView({ onNavigate }: { onNavigate: (view: View) => void }) {
             </button>
           </div>
           <div className="score-panel">
-            <ScoreRing />
+            <ScoreRing score={data.audit.score} />
             <span className="score-label">
               <TrendingUp size={15} /> +6 puntos este mes
             </span>
@@ -461,41 +623,6 @@ function HomeView({ onNavigate }: { onNavigate: (view: View) => void }) {
   );
 }
 
-const auditCategories = [
-  { label: "Perfil y biografía", score: 92, color: "#0c9b78" },
-  { label: "Calidad del contenido", score: 81, color: "#7c5ce5" },
-  { label: "Consistencia", score: 68, color: "#ef8a2e" },
-  { label: "Conversión a reservas", score: 61, color: "#e83387" },
-  { label: "Comunidad", score: 84, color: "#3a7bd5" },
-];
-
-const auditFindings = [
-  {
-    level: "Alta prioridad",
-    tone: "high",
-    icon: Link2,
-    title: "Tu biografía no indica cómo reservar",
-    text: "Añade una llamada a la acción clara y el enlace directo de RservasRoma.",
-    action: "Ver recomendación",
-  },
-  {
-    level: "Oportunidad",
-    tone: "medium",
-    icon: MessageSquareText,
-    title: "6 de 10 captions terminan sin CTA",
-    text: "Cierra cada publicación invitando a guardar, comentar o reservar.",
-    action: "Crear CTA",
-  },
-  {
-    level: "A mejorar",
-    tone: "low",
-    icon: CalendarDays,
-    title: "Tu frecuencia cambia cada semana",
-    text: "Publicar 4 veces por semana puede elevar tu alcance estimado.",
-    action: "Crear calendario",
-  },
-];
-
 function ViewIntro({
   eyebrow,
   title,
@@ -522,19 +649,7 @@ function ViewIntro({
   );
 }
 
-function AuditView({ onNavigate }: { onNavigate: (view: View) => void }) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshed, setRefreshed] = useState(false);
-
-  const refreshAudit = () => {
-    setIsRefreshing(true);
-    setRefreshed(false);
-    window.setTimeout(() => {
-      setIsRefreshing(false);
-      setRefreshed(true);
-    }, 900);
-  };
-
+function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: () => void; onNavigate: (view: View) => void }) {
   return (
     <div className="page-content inner-page">
       <ViewIntro
@@ -544,20 +659,12 @@ function AuditView({ onNavigate }: { onNavigate: (view: View) => void }) {
       >
         <button
           className="secondary-button"
-          onClick={refreshAudit}
-          disabled={isRefreshing}
+          onClick={onEdit}
         >
-          <RefreshCw size={17} className={isRefreshing ? "spin" : ""} />
-          {isRefreshing ? "Analizando cuenta..." : "Analizar de nuevo"}
+          <RefreshCw size={17} />
+          Actualizar mis datos
         </button>
       </ViewIntro>
-
-      {refreshed && (
-        <div className="success-banner">
-          <CheckCircle2 size={17} />
-          Auditoría actualizada. No detectamos cambios importantes desde ayer.
-        </div>
-      )}
 
       <section className="audit-overview">
         <article className="audit-score-card">
@@ -577,7 +684,7 @@ function AuditView({ onNavigate }: { onNavigate: (view: View) => void }) {
             </div>
           </div>
           <div className="large-score">
-            <ScoreRing />
+            <ScoreRing score={data.audit.score} />
             <strong>BUENA</strong>
             <span>Última auditoría: hoy</span>
           </div>
@@ -592,7 +699,7 @@ function AuditView({ onNavigate }: { onNavigate: (view: View) => void }) {
             <SlidersHorizontal size={18} />
           </div>
           <div className="category-list">
-            {auditCategories.map((item) => (
+            {data.audit.categories.map((item) => (
               <div className="category-row" key={item.label}>
                 <div>
                   <span>{item.label}</span>
@@ -621,16 +728,21 @@ function AuditView({ onNavigate }: { onNavigate: (view: View) => void }) {
           <span className="analysis-label"><Sparkles size={14} /> Analizado con IA</span>
         </div>
         <div className="findings-grid">
-          {auditFindings.map((finding, index) => {
-            const Icon = finding.icon;
+          {data.audit.recommendations.map((finding, index) => {
+            const findingStyles = [
+              { icon: Link2, level: "Alta prioridad", tone: "high" },
+              { icon: MessageSquareText, level: "Oportunidad", tone: "medium" },
+              { icon: CalendarDays, level: "A mejorar", tone: "low" },
+            ][index];
+            const Icon = findingStyles.icon;
             return (
               <article className="finding-card" key={finding.title}>
                 <div className="finding-top">
-                  <span className={`finding-icon tone-${finding.tone}`}>
+                  <span className={`finding-icon tone-${findingStyles.tone}`}>
                     <Icon size={20} />
                   </span>
-                  <span className={`finding-level tone-${finding.tone}`}>
-                    {finding.level}
+                  <span className={`finding-level tone-${findingStyles.tone}`}>
+                    {findingStyles.level}
                   </span>
                   <em>0{index + 1}</em>
                 </div>
@@ -1292,20 +1404,63 @@ function ResultsView() {
 export default function Home() {
   const [activeView, setActiveView] = useState<View>("inicio");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [data, setData] = useState<RomaCreceData | null>(null);
+  const [isReady, setIsReady] = useState(false);
+  const [editingAudit, setEditingAudit] = useState(false);
+
+  useEffect(() => {
+    let savedData: RomaCreceData | null = null;
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved) as RomaCreceData;
+        if (parsed.business?.name && parsed.audit?.categories) savedData = parsed;
+      }
+    } catch {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      setData(savedData);
+      setIsReady(true);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const completeOnboarding = (nextData: RomaCreceData) => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    setData(nextData);
+    setEditingAudit(false);
+    setActiveView("auditoria");
+  };
+
+  if (!isReady) {
+    return (
+      <main className="app-loading" aria-label="Cargando RomaCrece">
+        <Brand />
+        <LoaderCircle className="spin" size={24} />
+      </main>
+    );
+  }
+
+  if (!data) return <Onboarding onComplete={completeOnboarding} />;
+  if (editingAudit) return <Onboarding initialData={data} onComplete={completeOnboarding} />;
 
   return (
     <main className="app-shell">
       <Sidebar
+        business={data.business}
         activeView={activeView}
         onNavigate={setActiveView}
         mobileOpen={mobileOpen}
         closeMobile={() => setMobileOpen(false)}
       />
       <div className="main-area">
-        <Header openMenu={() => setMobileOpen(true)} />
+        <Header business={data.business} openMenu={() => setMobileOpen(true)} />
         <div className="view-stage" key={activeView}>
-          {activeView === "inicio" && <HomeView onNavigate={setActiveView} />}
-          {activeView === "auditoria" && <AuditView onNavigate={setActiveView} />}
+          {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} />}
+          {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} />}
           {activeView === "ideas" && <IdeasView onNavigate={setActiveView} />}
           {activeView === "planificador" && <PlannerView />}
           {activeView === "resultados" && <ResultsView />}
