@@ -7,15 +7,20 @@ export type BusinessProfile = {
 };
 
 export type AuditAnswers = {
-  bioComplete: boolean;
-  bookingLink: boolean;
-  visualConsistency: number;
-  contentQuality: number;
-  postsPerWeek: number;
-  engagementRate: number;
-  captionsWithCta: number;
-  messagesPerMonth: number;
-  bookingsPerMonth: number;
+  country: string;
+  workMode: "Trabajo sola" | "Tengo equipo";
+  teamSize: number;
+  accountAgeMonths: number;
+  followers: number;
+  following: number;
+  totalPosts: number;
+  averageLikes: number;
+  averageComments: number;
+  averageSaves: number | null;
+  postingFrequency: "Cuando puedo" | "1 vez por semana" | "2-3 veces por semana" | "4-6 veces por semana" | "Todos los días";
+  reelsFrequency: "No uso" | "A veces" | "1-2 por semana" | "3-5 por semana" | "Todos los días";
+  storiesFrequency: "No uso" | "A veces" | "3-5 días por semana" | "Casi todos los días" | "Todos los días";
+  mainContent: "Fotos de trabajos" | "Consejos" | "Contenido personal" | "Promociones" | "Una mezcla de varios";
 };
 
 export type AuditCategory = {
@@ -43,8 +48,38 @@ export type RomaCreceData = {
   business: BusinessProfile;
   answers: AuditAnswers;
   audit: AuditResult;
+  aiAnalysis?: AiAnalysis;
   ideas?: ContentIdea[];
   plannedItems?: PlannedContent[];
+  weeklyMetrics?: WeeklyMetrics[];
+};
+
+export type WeeklyMetrics = {
+  id: string;
+  weekStart: string;
+  followers: number;
+  reach: number;
+  profileVisits: number;
+  likes: number;
+  comments: number;
+  saves: number;
+  messages: number;
+  bookings: number;
+  posts: number;
+  reels: number;
+  stories: number;
+  bestPost: string;
+  updatedAt: string;
+};
+
+export type AiAnalysis = {
+  headline: string;
+  summary: string;
+  strengths: Array<{ title: string; detail: string }>;
+  priorities: Array<{ title: string; why: string; action: string }>;
+  weeklyPlan: Array<{ day: string; format: "Reel" | "Carrusel" | "Historia"; idea: string; goal: string }>;
+  generatedAt: string;
+  nextAvailableAt: string;
 };
 
 export type ContentIdea = {
@@ -77,58 +112,105 @@ export type PlannedContent = {
 export const STORAGE_KEY = "romacrece:mvp:v1";
 
 export const initialAuditAnswers: AuditAnswers = {
-  bioComplete: false,
-  bookingLink: false,
-  visualConsistency: 3,
-  contentQuality: 3,
-  postsPerWeek: 2,
-  engagementRate: 2,
-  captionsWithCta: 40,
-  messagesPerMonth: 10,
-  bookingsPerMonth: 3,
+  country: "",
+  workMode: "Trabajo sola",
+  teamSize: 0,
+  accountAgeMonths: 12,
+  followers: 500,
+  following: 400,
+  totalPosts: 80,
+  averageLikes: 20,
+  averageComments: 2,
+  averageSaves: null,
+  postingFrequency: "2-3 veces por semana",
+  reelsFrequency: "1-2 por semana",
+  storiesFrequency: "3-5 días por semana",
+  mainContent: "Fotos de trabajos",
 };
+
+export function normalizeAuditAnswers(value?: Partial<AuditAnswers>): AuditAnswers {
+  return { ...initialAuditAnswers, ...value };
+}
 
 const clamp = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
+export function calculateChange(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? 0 : null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 export function calculateAudit(answers: AuditAnswers): AuditResult {
-  const profile = clamp((answers.bioComplete ? 50 : 0) + (answers.bookingLink ? 50 : 0));
-  const visual = clamp(answers.visualConsistency * 20);
-  const frequency = clamp((answers.postsPerWeek / 4) * 100);
-  const content = clamp(answers.contentQuality * 15 + answers.captionsWithCta * 0.25);
-  const engagement = clamp((answers.engagementRate / 5) * 100);
-  const conversionRate = answers.messagesPerMonth > 0
-    ? (answers.bookingsPerMonth / answers.messagesPerMonth) * 100
+  const postingScores: Record<AuditAnswers["postingFrequency"], number> = {
+    "Cuando puedo": 20,
+    "1 vez por semana": 40,
+    "2-3 veces por semana": 75,
+    "4-6 veces por semana": 95,
+    "Todos los días": 100,
+  };
+  const reelsScores: Record<AuditAnswers["reelsFrequency"], number> = {
+    "No uso": 10,
+    "A veces": 35,
+    "1-2 por semana": 70,
+    "3-5 por semana": 95,
+    "Todos los días": 100,
+  };
+  const storiesScores: Record<AuditAnswers["storiesFrequency"], number> = {
+    "No uso": 10,
+    "A veces": 35,
+    "3-5 días por semana": 70,
+    "Casi todos los días": 90,
+    "Todos los días": 100,
+  };
+  const contentScores: Record<AuditAnswers["mainContent"], number> = {
+    "Fotos de trabajos": 60,
+    "Consejos": 80,
+    "Contenido personal": 65,
+    "Promociones": 35,
+    "Una mezcla de varios": 100,
+  };
+
+  const expectedPosts = Math.max(12, answers.accountAgeMonths * 3);
+  const activityBase = Math.min(1, answers.totalPosts / expectedPosts) * 100;
+  const followerRatio = answers.followers > 0
+    ? Math.min(1, answers.followers / Math.max(answers.following, 1)) * 100
     : 0;
-  const conversion = clamp(conversionRate * 2.5);
+  const profile = clamp(activityBase * 0.6 + followerRatio * 0.4);
+  const visual = reelsScores[answers.reelsFrequency];
+  const frequency = postingScores[answers.postingFrequency];
+  const content = contentScores[answers.mainContent];
+  const interactions = answers.averageLikes + answers.averageComments + (answers.averageSaves ?? 0);
+  const engagementRate = answers.followers > 0 ? (interactions / answers.followers) * 100 : 0;
+  const engagement = clamp((engagementRate / 5) * 100);
+  const conversion = storiesScores[answers.storiesFrequency];
 
   const categories: AuditCategory[] = [
-    { id: "profile", label: "Perfil y biografía", score: profile, color: "#0c9b78" },
-    { id: "visual", label: "Identidad visual", score: visual, color: "#7c5ce5" },
-    { id: "frequency", label: "Frecuencia", score: frequency, color: "#ef8a2e" },
-    { id: "content", label: "Calidad del contenido", score: content, color: "#e83387" },
-    { id: "engagement", label: "Engagement", score: engagement, color: "#3a7bd5" },
-    { id: "conversion", label: "Conversión a reservas", score: conversion, color: "#d946ef" },
+    { id: "profile", label: "Base de la cuenta", score: profile, color: "#0c9b78" },
+    { id: "visual", label: "Uso de Reels", score: visual, color: "#7c5ce5" },
+    { id: "frequency", label: "Ritmo de publicación", score: frequency, color: "#ef8a2e" },
+    { id: "content", label: "Variedad de contenido", score: content, color: "#e83387" },
+    { id: "engagement", label: "Respuesta del público", score: engagement, color: "#3a7bd5" },
+    { id: "conversion", label: "Uso de Stories", score: conversion, color: "#d946ef" },
   ];
 
   const score = clamp(
     profile * 0.15 +
     visual * 0.15 +
-    frequency * 0.15 +
-    content * 0.2 +
-    engagement * 0.2 +
-    conversion * 0.15,
+    frequency * 0.2 +
+    content * 0.15 +
+    engagement * 0.25 +
+    conversion * 0.1,
   );
 
   const recommendationByCategory: Record<AuditCategory["id"], Omit<AuditRecommendation, "categoryId">> = {
     profile: {
-      title: "Convierte tu biografía en una ruta de reserva",
-      text: "Explica qué servicio ofreces, en qué ciudad trabajas y añade un enlace directo para reservar.",
-      action: "Mejorar perfil",
+      title: "Fortalece la base de tu cuenta",
+      text: "Publica con constancia y evita seguir muchas más cuentas de las que te siguen.",
+      action: "Fortalecer cuenta",
     },
     visual: {
-      title: "Haz que tu contenido se reconozca al instante",
-      text: "Mantén una paleta, iluminación y estilo de portada consistentes en tus próximas publicaciones.",
-      action: "Crear guía visual",
+      title: "Usa Reels para llegar a personas nuevas",
+      text: "Empieza con uno o dos Reels por semana mostrando resultados, procesos y consejos breves.",
+      action: "Planear Reels",
     },
     frequency: {
       title: "Crea una frecuencia sostenible",
@@ -136,19 +218,19 @@ export function calculateAudit(answers: AuditAnswers): AuditResult {
       action: "Crear calendario",
     },
     content: {
-      title: "Cierra cada publicación con una acción clara",
-      text: "Combina contenido educativo, resultados y prueba social; termina invitando a guardar, escribir o reservar.",
-      action: "Generar contenido",
+      title: "No publiques siempre lo mismo",
+      text: "Combina trabajos terminados, consejos, historias personales, testimonios y promociones.",
+      action: "Variar contenido",
     },
     engagement: {
-      title: "Convierte seguidores pasivos en conversación",
-      text: "Incluye preguntas fáciles de responder y contesta comentarios y mensajes durante las primeras horas.",
-      action: "Crear CTA",
+      title: "Haz que sea más fácil reaccionar",
+      text: "Abre con una pregunta clara y termina invitando a comentar, guardar o compartir.",
+      action: "Mejorar interacción",
     },
     conversion: {
-      title: "Reduce los pasos entre el interés y la reserva",
-      text: "Usa una llamada a la acción concreta, respuestas rápidas y un enlace directo a tus horarios disponibles.",
-      action: "Mejorar conversión",
+      title: "Mantente presente con Stories",
+      text: "Comparte procesos, espacios disponibles y el día a día del negocio varias veces por semana.",
+      action: "Crear Stories",
     },
   };
 

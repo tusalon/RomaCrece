@@ -20,9 +20,11 @@ export const metadata: Metadata = {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/icons/icon-192x192.png",
+    shortcut: "/icons/icon-192x192.png",
+    apple: "/icons/icon-192x192.png",
   },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

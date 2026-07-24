@@ -71,6 +71,21 @@ El build configura automáticamente la ruta base `/RomaCrece/` y copia el
 archivo `.nojekyll`. Los archivos de `docs/assets/` son generados y no deben
 editarse manualmente.
 
+## APK Android
+
+RomaCrece también incluye una aplicación Android basada en Capacitor. El logo
+de RservasRoma se usa como icono de instalación, icono adaptable y pantalla de
+inicio. Para actualizar la carpeta Android localmente:
+
+```bash
+npm run android:sync
+```
+
+El workflow `.github/workflows/build-android-apk.yml` compila la APK desde
+GitHub Actions y publica el artefacto `romacrece-v0.1.0-apk`. La compilación
+Android utiliza una salida independiente para no modificar la base URL de
+GitHub Pages.
+
 ## Preparar Supabase
 
 La aplicación usa Supabase Auth con correo y contraseña. Negocios, auditorías,
@@ -85,6 +100,28 @@ local se conserva únicamente como respaldo. La base remota está definida en
 
 La clave `service_role` nunca debe utilizarse en el navegador ni guardarse en
 este repositorio.
+
+### Análisis semanal con Gemini
+
+La función `supabase/functions/generate-audit` genera un análisis personalizado
+por negocio y semana con `gemini-3.5-flash-lite`. La clave se configura únicamente
+como secreto de Edge Functions con el nombre `GEMINI_API_KEY`; nunca se añade a
+`.env.local`, al código del navegador ni a GitHub.
+
+La migración `202607240002_ai_audits.sql` guarda el resultado y aplica RLS para
+que cada usuario solo pueda leer sus propios análisis. La puntuación calculada
+localmente permanece disponible si Gemini no responde o se alcanza el límite.
+
+### Seguimiento semanal
+
+La sección **Mi semana** permite registrar manualmente los datos principales de
+Instagram: seguidores, alcance, visitas al perfil, interacciones, mensajes,
+reservas y contenido publicado. La aplicación compara cada registro con la
+semana anterior y conserva un historial visual de hasta ocho semanas.
+
+La migración `202607240003_weekly_metrics.sql` crea la tabla
+`weekly_metrics`. Sus políticas RLS permiten que cada usuario vea y modifique
+únicamente los resultados de sus propios negocios.
 
 Para que la confirmación por correo regrese a la aplicación, configura en
 **Supabase → Authentication → URL Configuration**:

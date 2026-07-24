@@ -3,12 +3,14 @@ node_modules/
 .next/
 dist/
 out/
+android-web/
 
 # Local Vite, Cloudflare and Sites state
 .vite/
 .vinext/
 .wrangler/
 .sites-runtime/
+supabase/.temp/
 
 # Environment files (examples remain trackable)
 .env

@@ -18,7 +18,7 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
   if (businessError) throw businessError;
   if (!business) return null;
 
-  const [auditResponse, ideasResponse, plannerResponse] = await Promise.all([
+  const [auditResponse, ideasResponse, plannerResponse, aiResponse, weeklyResponse] = await Promise.all([
     supabase
       .from("audit_snapshots")
       .select("score,answers,categories,recommendations,audited_at")
@@ -35,11 +35,25 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       .from("planned_content")
       .select("client_id,week_offset,day_index,publish_time,format,title,status,color")
       .eq("business_id", business.id),
+    supabase
+      .from("ai_audits")
+      .select("analysis")
+      .eq("business_id", business.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("weekly_metrics")
+      .select("id,week_start,followers,reach,profile_visits,likes,comments,saves,messages,bookings,posts,reels,stories,best_post,updated_at")
+      .eq("business_id", business.id)
+      .order("week_start", { ascending: true }),
   ]);
 
   if (auditResponse.error) throw auditResponse.error;
   if (ideasResponse.error) throw ideasResponse.error;
   if (plannerResponse.error) throw plannerResponse.error;
+  if (aiResponse.error && aiResponse.error.code !== "PGRST205") throw aiResponse.error;
+  if (weeklyResponse.error && weeklyResponse.error.code !== "PGRST205") throw weeklyResponse.error;
   if (!auditResponse.data) return null;
 
   return {
@@ -57,6 +71,7 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       recommendations: auditResponse.data.recommendations,
       createdAt: auditResponse.data.audited_at,
     },
+    aiAnalysis: aiResponse.data?.analysis ?? undefined,
     ideas: (ideasResponse.data ?? []).map((idea) => ({
       id: idea.client_id,
       format: idea.format,
@@ -81,6 +96,23 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       title: item.title,
       status: item.status,
       color: item.color,
+    })),
+    weeklyMetrics: (weeklyResponse.data ?? []).map((item) => ({
+      id: item.id,
+      weekStart: item.week_start,
+      followers: item.followers,
+      reach: item.reach,
+      profileVisits: item.profile_visits,
+      likes: item.likes,
+      comments: item.comments,
+      saves: item.saves,
+      messages: item.messages,
+      bookings: item.bookings,
+      posts: item.posts,
+      reels: item.reels,
+      stories: item.stories,
+      bestPost: item.best_post,
+      updatedAt: item.updated_at,
     })),
   } as RomaCreceData;
 }
@@ -156,6 +188,28 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       status: item.status,
       color: item.color,
     })));
+    if (error) throw error;
+  }
+
+  if (data.weeklyMetrics?.length) {
+    const { error } = await supabase.from("weekly_metrics").upsert(data.weeklyMetrics.map((item) => ({
+      business_id: businessId,
+      owner_id: user.id,
+      week_start: item.weekStart,
+      followers: item.followers,
+      reach: item.reach,
+      profile_visits: item.profileVisits,
+      likes: item.likes,
+      comments: item.comments,
+      saves: item.saves,
+      messages: item.messages,
+      bookings: item.bookings,
+      posts: item.posts,
+      reels: item.reels,
+      stories: item.stories,
+      best_post: item.bestPost,
+      updated_at: item.updatedAt,
+    })), { onConflict: "business_id,week_start" });
     if (error) throw error;
   }
 }

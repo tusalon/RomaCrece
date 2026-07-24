@@ -55,14 +55,17 @@ import {
   STORAGE_KEY,
   businessInitials,
   calculateAudit,
+  calculateChange,
   generateContentIdea,
-  initialAuditAnswers,
+  normalizeAuditAnswers,
   type AuditAnswers,
   type BusinessProfile,
   type ContentIdea,
   type PlannedContent,
   type RomaCreceData,
+  type WeeklyMetrics,
 } from "./audit-model";
+import { generateAiAnalysis } from "./gemini";
 import { loadCloudData, saveCloudData } from "./supabase-data";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -73,7 +76,7 @@ const navItems = [
   { id: "auditoria" as View, label: "Auditoría", icon: ScanSearch },
   { id: "ideas" as View, label: "Ideas", icon: Lightbulb },
   { id: "planificador" as View, label: "Planificador", icon: CalendarDays },
-  { id: "resultados" as View, label: "Resultados", icon: ChartNoAxesCombined },
+  { id: "resultados" as View, label: "Mi semana", icon: ChartNoAxesCombined },
 ];
 
 const metrics = [
@@ -117,17 +120,11 @@ const metrics = [
 
 const emptyBusiness: BusinessProfile = {
   name: "",
-  category: "Salón de belleza",
+  category: "Manicura",
   city: "",
-  objective: "Conseguir más reservas",
+  objective: "Conseguir más clientes locales",
   instagram: "",
 };
-
-const simpleRatingLabels = ["Muy poco", "Poco", "Bien", "Muy bien", "Excelente"];
-
-function simpleRating(value: number) {
-  return simpleRatingLabels[Math.max(1, Math.min(5, Math.round(value))) - 1];
-}
 
 function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -197,9 +194,9 @@ function AuthScreen() {
 }
 
 function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; onComplete: (data: RomaCreceData) => void }) {
-  const [step, setStep] = useState<1 | 2>(initialData ? 2 : 1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialData ? 2 : 1);
   const [business, setBusiness] = useState(initialData?.business ?? emptyBusiness);
-  const [answers, setAnswers] = useState(initialData?.answers ?? initialAuditAnswers);
+  const [answers, setAnswers] = useState(normalizeAuditAnswers(initialData?.answers));
 
   const updateBusiness = (field: keyof BusinessProfile, value: string) => {
     setBusiness((current) => ({ ...current, [field]: value }));
@@ -212,6 +209,12 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
   const continueToAudit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStep(2);
+  };
+
+  const continueTo = (event: FormEvent<HTMLFormElement>, nextStep: 2 | 3 | 4) => {
+    event.preventDefault();
+    setStep(nextStep);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const finishOnboarding = (event: FormEvent<HTMLFormElement>) => {
@@ -243,7 +246,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
           <div className="onboarding-benefits">
             <span><CheckCircle2 size={17} /> Resultado inmediato</span>
             <span><CheckCircle2 size={17} /> Recomendaciones personalizadas</span>
-            <span><CheckCircle2 size={17} /> Datos guardados en este dispositivo</span>
+            <span><CheckCircle2 size={17} /> Datos guardados en tu cuenta</span>
           </div>
         </div>
         <small>RomaCrece · Parte del ecosistema RomaHub</small>
@@ -251,38 +254,47 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
 
       <section className="onboarding-form-panel">
         <div className="onboarding-form-wrap">
-          <div className="onboarding-progress" aria-label={`Paso ${step} de 2`}>
-            <span className="active">1</span><i className={step === 2 ? "active" : ""} /><span className={step === 2 ? "active" : ""}>2</span>
+          <div className="onboarding-progress" aria-label={`Paso ${step} de 4`}>
+            <span className="active">1</span><i className={step >= 2 ? "active" : ""} />
+            <span className={step >= 2 ? "active" : ""}>2</span><i className={step >= 3 ? "active" : ""} />
+            <span className={step >= 3 ? "active" : ""}>3</span><i className={step >= 4 ? "active" : ""} />
+            <span className={step >= 4 ? "active" : ""}>4</span>
           </div>
           <div className="onboarding-heading">
-            <span>PASO {step} DE 2</span>
-            <h2>{step === 1 ? "Conozcamos tu negocio" : "Veamos cómo está tu Instagram"}</h2>
+            <span>PASO {step} DE 4</span>
+            <h2>{step === 1 ? "Conozcamos tu negocio" : step === 2 ? "Cuéntanos sobre tu trabajo" : step === 3 ? "Miremos tus números reales" : "¿Cómo publicas hoy?"}</h2>
             <p>
               {step === 1
-                ? "Estos datos nos ayudan a adaptar el diagnóstico a tu realidad."
-                : "No necesitas conocer métricas: responde según lo que ves cada día."}
+                ? "Estos datos nos ayudan a adaptar el análisis a tu realidad."
+                : step === 2
+                  ? "Son preguntas rápidas para entender el contexto de tu cuenta."
+                  : step === 3
+                    ? "Usa los números de tu perfil y el promedio de una publicación normal."
+                    : "No hay respuestas buenas o malas: queremos conocer tu rutina real."}
             </p>
           </div>
 
-          {step === 1 ? (
+          {step === 1 && (
             <form className="onboarding-form" onSubmit={continueToAudit}>
               <label className="onboarding-field wide">
                 <span>Nombre del negocio</span>
                 <input required value={business.name} onChange={(event) => updateBusiness("name", event.target.value)} placeholder="Ej.: Bella Studio" />
               </label>
               <label className="onboarding-field">
-                <span>Tipo de negocio</span>
+                <span>¿Cuál es tu especialidad?</span>
                 <select value={business.category} onChange={(event) => updateBusiness("category", event.target.value)}>
-                  <option>Salón de belleza</option>
-                  <option>Estudio de uñas</option>
+                  <option>Manicura</option>
+                  <option>Peluquería</option>
+                  <option>Lashes</option>
+                  <option>Cejas</option>
                   <option>Barbería</option>
-                  <option>Spa y estética</option>
-                  <option>Profesional independiente</option>
-                  <option>Otro negocio de belleza</option>
+                  <option>Salón mixto</option>
+                  <option>Estética y spa</option>
+                  <option>Otro</option>
                 </select>
               </label>
               <label className="onboarding-field">
-                <span>Ciudad</span>
+                <span>Ciudad o zona donde atiendes</span>
                 <input required value={business.city} onChange={(event) => updateBusiness("city", event.target.value)} placeholder="Ej.: La Habana" />
               </label>
               <label className="onboarding-field wide">
@@ -290,70 +302,84 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
                 <div className="instagram-input"><Instagram size={17} /><b>@</b><input required value={business.instagram} onChange={(event) => updateBusiness("instagram", event.target.value)} placeholder="bellastudio" /></div>
               </label>
               <label className="onboarding-field wide">
-                <span>Objetivo principal</span>
+                <span>¿Cuál es tu meta con Instagram?</span>
                 <select value={business.objective} onChange={(event) => updateBusiness("objective", event.target.value)}>
-                  <option>Conseguir más reservas</option>
-                  <option>Aumentar el alcance</option>
-                  <option>Crear una comunidad</option>
+                  <option>Conseguir más clientes locales</option>
+                  <option>Hacer crecer mi marca</option>
+                  <option>Crecer en seguidores</option>
+                  <option>Monetizar mi contenido</option>
                   <option>Vender productos o servicios</option>
-                  <option>Publicar con mayor constancia</option>
+                  <option>Otro objetivo</option>
                 </select>
               </label>
-              <button className="primary-button onboarding-submit" type="submit">Continuar con la auditoría <ArrowRight size={17} /></button>
+              <button className="primary-button onboarding-submit" type="submit">Continuar <ArrowRight size={17} /></button>
             </form>
-          ) : (
-            <form className="onboarding-form audit-form" onSubmit={finishOnboarding}>
-              <div className="audit-question wide toggle-question">
-                <div><strong>¿Tu biografía explica qué haces y dónde trabajas?</strong><small>Debe ser fácil entender tus servicios en pocos segundos.</small></div>
-                <button type="button" className={answers.bioComplete ? "yes" : ""} onClick={() => updateAnswer("bioComplete", !answers.bioComplete)}>{answers.bioComplete ? "Sí" : "No"}</button>
-              </div>
-              <div className="audit-question wide toggle-question">
-                <div><strong>¿Tienes un enlace directo para reservar?</strong><small>Puede dirigir a RservasRoma, WhatsApp o una agenda digital.</small></div>
-                <button type="button" className={answers.bookingLink ? "yes" : ""} onClick={() => updateAnswer("bookingLink", !answers.bookingLink)}>{answers.bookingLink ? "Sí" : "No"}</button>
-              </div>
-              <label className="onboarding-field range-field">
-                <span>¿Tus publicaciones mantienen un estilo parecido? <strong>{simpleRating(answers.visualConsistency)}</strong></span>
-                <input type="range" min="1" max="5" value={answers.visualConsistency} onChange={(event) => updateAnswer("visualConsistency", Number(event.target.value))} />
-                <small className="field-help">1 = cambian mucho · 5 = se reconocen enseguida</small>
-              </label>
-              <label className="onboarding-field range-field">
-                <span>¿Qué tan bien se ven tus fotos y videos? <strong>{simpleRating(answers.contentQuality)}</strong></span>
-                <input type="range" min="1" max="5" value={answers.contentQuality} onChange={(event) => updateAnswer("contentQuality", Number(event.target.value))} />
-                <small className="field-help">Piensa en la luz, claridad y presentación</small>
-              </label>
-              <label className="onboarding-field">
-                <span>¿Cuántas veces publicas en una semana?</span>
-                <input type="number" min="0" max="14" required value={answers.postsPerWeek} onChange={(event) => updateAnswer("postsPerWeek", Number(event.target.value))} />
-                <small className="field-help">Sin contar las historias</small>
-              </label>
-              <label className="onboarding-field range-field">
-                <span>¿Tu comunidad reacciona a lo que publicas? <strong>{simpleRating(answers.engagementRate)}</strong></span>
-                <input type="range" min="1" max="5" value={Math.min(5, answers.engagementRate)} onChange={(event) => updateAnswer("engagementRate", Number(event.target.value))} />
-                <small className="field-help">Piensa en los Me gusta, comentarios y respuestas</small>
-              </label>
-              <label className="onboarding-field">
-                <span>¿Con qué frecuencia invitas a escribirte o reservar?</span>
-                <select value={answers.captionsWithCta} onChange={(event) => updateAnswer("captionsWithCta", Number(event.target.value))}>
-                  <option value="0">Nunca</option>
-                  <option value="40">A veces</option>
-                  <option value="75">Casi siempre</option>
-                  <option value="100">Siempre</option>
-                </select>
-                <small className="field-help">Por ejemplo: “Escríbeme” o “Reserva tu cita”</small>
-              </label>
-              <label className="onboarding-field">
-                <span>¿Cuántas personas te escriben por Instagram al mes?</span>
-                <input type="number" min="0" required value={answers.messagesPerMonth} onChange={(event) => updateAnswer("messagesPerMonth", Number(event.target.value))} />
-                <small className="field-help">Un aproximado está bien</small>
-              </label>
+          )}
+
+          {step === 2 && (
+            <form className="onboarding-form audit-form" onSubmit={(event) => continueTo(event, 3)}>
               <label className="onboarding-field wide">
-                <span>De esas personas, ¿cuántas terminan reservando?</span>
-                <input type="number" min="0" required value={answers.bookingsPerMonth} onChange={(event) => updateAnswer("bookingsPerMonth", Number(event.target.value))} />
-                <small className="field-help">También puedes usar un aproximado</small>
+                <span>¿En qué país estás?</span>
+                <input required value={answers.country} onChange={(event) => updateAnswer("country", event.target.value)} placeholder="Ej.: Cuba, España, Estados Unidos" />
+              </label>
+              <label className="onboarding-field">
+                <span>¿Trabajas sola o tienes equipo?</span>
+                <select value={answers.workMode} onChange={(event) => {
+                  const value = event.target.value as AuditAnswers["workMode"];
+                  updateAnswer("workMode", value);
+                  if (value === "Trabajo sola") updateAnswer("teamSize", 0);
+                }}>
+                  <option>Trabajo sola</option>
+                  <option>Tengo equipo</option>
+                </select>
+              </label>
+              {answers.workMode === "Tengo equipo" && (
+                <label className="onboarding-field">
+                  <span>¿Cuántas personas forman el equipo?</span>
+                  <input type="number" min="1" required value={answers.teamSize || 1} onChange={(event) => updateAnswer("teamSize", Number(event.target.value))} />
+                </label>
+              )}
+              <label className={`onboarding-field ${answers.workMode === "Trabajo sola" ? "wide" : ""}`}>
+                <span>¿Cuánto tiempo lleva activa tu cuenta?</span>
+                <select value={answers.accountAgeMonths} onChange={(event) => updateAnswer("accountAgeMonths", Number(event.target.value))}>
+                  <option value="3">Menos de 6 meses</option>
+                  <option value="9">Entre 6 meses y 1 año</option>
+                  <option value="24">Entre 1 y 3 años</option>
+                  <option value="48">Más de 3 años</option>
+                </select>
               </label>
               <div className="onboarding-actions wide">
                 <button className="secondary-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={17} /> Volver</button>
-                <button className="primary-button" type="submit">Ver mi resultado <Sparkles size={17} /></button>
+                <button className="primary-button" type="submit">Continuar <ArrowRight size={17} /></button>
+              </div>
+            </form>
+          )}
+
+          {step === 3 && (
+            <form className="onboarding-form audit-form" onSubmit={(event) => continueTo(event, 4)}>
+              <label className="onboarding-field"><span>¿Cuántos seguidores tienes?</span><input type="number" min="0" required value={answers.followers} onChange={(event) => updateAnswer("followers", Number(event.target.value))} /></label>
+              <label className="onboarding-field"><span>¿A cuántas cuentas sigues?</span><input type="number" min="0" required value={answers.following} onChange={(event) => updateAnswer("following", Number(event.target.value))} /></label>
+              <label className="onboarding-field wide"><span>¿Cuántas publicaciones tienes en total?</span><input type="number" min="0" required value={answers.totalPosts} onChange={(event) => updateAnswer("totalPosts", Number(event.target.value))} /></label>
+              <label className="onboarding-field"><span>Likes de una publicación normal</span><input type="number" min="0" required value={answers.averageLikes} onChange={(event) => updateAnswer("averageLikes", Number(event.target.value))} /><small className="field-help">No uses tu mejor publicación, piensa en una normal</small></label>
+              <label className="onboarding-field"><span>Comentarios de una publicación normal</span><input type="number" min="0" required value={answers.averageComments} onChange={(event) => updateAnswer("averageComments", Number(event.target.value))} /><small className="field-help">Un aproximado está bien</small></label>
+              <label className="onboarding-field wide"><span>¿Cuántas personas guardan tus publicaciones?</span><input type="number" min="0" value={answers.averageSaves ?? ""} onChange={(event) => updateAnswer("averageSaves", event.target.value === "" ? null : Number(event.target.value))} placeholder="Déjalo vacío si no lo sabes" /><small className="field-help">Este dato es opcional</small></label>
+              <div className="onboarding-actions wide">
+                <button className="secondary-button" type="button" onClick={() => setStep(2)}><ChevronLeft size={17} /> Volver</button>
+                <button className="primary-button" type="submit">Continuar <ArrowRight size={17} /></button>
+              </div>
+            </form>
+          )}
+
+          {step === 4 && (
+            <form className="onboarding-form audit-form" onSubmit={finishOnboarding}>
+              <label className="onboarding-field wide"><span>¿Con qué frecuencia publicas?</span><select value={answers.postingFrequency} onChange={(event) => updateAnswer("postingFrequency", event.target.value as AuditAnswers["postingFrequency"])}><option>Cuando puedo</option><option>1 vez por semana</option><option>2-3 veces por semana</option><option>4-6 veces por semana</option><option>Todos los días</option></select></label>
+              <label className="onboarding-field"><span>¿Con qué frecuencia usas Reels?</span><select value={answers.reelsFrequency} onChange={(event) => updateAnswer("reelsFrequency", event.target.value as AuditAnswers["reelsFrequency"])}><option>No uso</option><option>A veces</option><option>1-2 por semana</option><option>3-5 por semana</option><option>Todos los días</option></select></label>
+              <label className="onboarding-field"><span>¿Con qué frecuencia usas Stories?</span><select value={answers.storiesFrequency} onChange={(event) => updateAnswer("storiesFrequency", event.target.value as AuditAnswers["storiesFrequency"])}><option>No uso</option><option>A veces</option><option>3-5 días por semana</option><option>Casi todos los días</option><option>Todos los días</option></select></label>
+              <label className="onboarding-field wide"><span>¿Qué tipo de contenido publicas más?</span><select value={answers.mainContent} onChange={(event) => updateAnswer("mainContent", event.target.value as AuditAnswers["mainContent"])}><option>Fotos de trabajos</option><option>Consejos</option><option>Contenido personal</option><option>Promociones</option><option>Una mezcla de varios</option></select></label>
+              <div className="audit-ready wide"><Sparkles size={18} /><div><strong>Todo listo para analizar tu cuenta</strong><small>Usaremos tus números reales para encontrar fortalezas y oportunidades.</small></div></div>
+              <div className="onboarding-actions wide">
+                <button className="secondary-button" type="button" onClick={() => setStep(3)}><ChevronLeft size={17} /> Volver</button>
+                <button className="primary-button" type="submit">Analizar mi cuenta <Sparkles size={17} /></button>
               </div>
             </form>
           )}
@@ -756,7 +782,28 @@ function ViewIntro({
   );
 }
 
-function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: () => void; onNavigate: (view: View) => void }) {
+function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData; onEdit: () => void; onNavigate: (view: View) => void; onUpdate: (data: RomaCreceData) => void }) {
+  const [analysis, setAnalysis] = useState(data.aiAnalysis);
+  const [aiState, setAiState] = useState<"idle" | "loading" | "error">("idle");
+
+  const requestAnalysis = async () => {
+    setAiState("loading");
+    try {
+      const result = await generateAiAnalysis(data);
+      setAnalysis(result.analysis);
+      onUpdate({ ...data, aiAnalysis: result.analysis });
+      setAiState("idle");
+    } catch (error) {
+      console.error("No se pudo generar el análisis con Gemini", error);
+      setAiState("error");
+    }
+  };
+
+  const findings = analysis
+    ? analysis.priorities.map((item) => ({ title: item.title, text: item.why, action: item.action }))
+    : data.audit.recommendations;
+  const scoreLabel = data.audit.score >= 80 ? "MUY BUENA" : data.audit.score >= 60 ? "BUENA" : data.audit.score >= 40 ? "EN PROCESO" : "POR MEJORAR";
+
   return (
     <div className="page-content inner-page">
       <ViewIntro
@@ -780,19 +827,16 @@ function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: 
               <Instagram size={17} />
               PUNTUACIÓN GENERAL
             </div>
-            <h2>Tu cuenta está por encima del promedio</h2>
-            <p>
-              Con tres mejoras concretas puedes pasar de una cuenta atractiva a
-              una cuenta que convierte visitas en citas.
-            </p>
+            <h2>{analysis?.headline ?? "Ya tenemos un punto de partida claro"}</h2>
+            <p>{analysis?.summary ?? "Tu puntuación usa los números y hábitos que compartiste. Ahora puedes convertirlos en un plan sencillo para esta semana."}</p>
             <div className="audit-benchmark">
-              <span><Award size={16} /> Top 28%</span>
-              <small>entre negocios de belleza similares</small>
+              <span><Award size={16} /> Basado en tus datos reales</span>
+              <small>sin comparaciones inventadas</small>
             </div>
           </div>
           <div className="large-score">
             <ScoreRing score={data.audit.score} />
-            <strong>BUENA</strong>
+            <strong>{scoreLabel}</strong>
             <span>Última auditoría: hoy</span>
           </div>
         </article>
@@ -826,16 +870,32 @@ function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: 
         </article>
       </section>
 
+      {!analysis && (
+        <section className="ai-audit-callout">
+          <div className="ai-audit-icon"><WandSparkles size={24} /></div>
+          <div>
+            <span>ANÁLISIS PERSONALIZADO</span>
+            <h2>Deja que Gemini convierta tus datos en un plan semanal</h2>
+            <p>Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad. Puedes generar uno gratis cada semana.</p>
+            {aiState === "error" && <small>No pudimos conectar con Gemini. Tu puntuación básica sigue guardada y puedes intentarlo nuevamente.</small>}
+          </div>
+          <button className="primary-button" onClick={requestAnalysis} disabled={aiState === "loading"}>
+            {aiState === "loading" ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}
+            {aiState === "loading" ? "Preparando tu análisis…" : "Crear mi análisis con IA"}
+          </button>
+        </section>
+      )}
+
       <section className="findings-section">
         <div className="section-heading">
           <div>
             <h2>Las 3 mejoras con mayor impacto</h2>
             <p>Ordenadas según su potencial para generar clientes</p>
           </div>
-          <span className="analysis-label"><Sparkles size={14} /> Analizado con IA</span>
+          <span className="analysis-label"><Sparkles size={14} /> {analysis ? "Analizado con Gemini" : "Análisis inicial"}</span>
         </div>
         <div className="findings-grid">
-          {data.audit.recommendations.map((finding, index) => {
+          {findings.map((finding, index) => {
             const findingStyles = [
               { icon: Link2, level: "Alta prioridad", tone: "high" },
               { icon: MessageSquareText, level: "Oportunidad", tone: "medium" },
@@ -873,16 +933,37 @@ function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: 
           <span className="strength-icon"><Star size={20} /></span>
           <div>
             <span>TUS FORTALEZAS</span>
-            <h3>Ya tienes una identidad reconocible</h3>
-            <p>Mantén estos elementos mientras mejoras la conversión.</p>
+            <h3>{analysis?.strengths[0]?.title ?? "Ya tienes una base para seguir creciendo"}</h3>
+            <p>{analysis?.strengths[0]?.detail ?? "Mantén lo que funciona mientras aplicas tus tres prioridades."}</p>
           </div>
         </div>
         <div className="strength-pills">
-          <span><CheckCircle2 size={16} /> Fotos de buena calidad</span>
-          <span><CheckCircle2 size={16} /> Colores consistentes</span>
-          <span><CheckCircle2 size={16} /> Respuesta activa</span>
+          {(analysis?.strengths ?? [
+            { title: "Datos reales registrados" },
+            { title: "Objetivo definido" },
+            { title: "Plan listo para mejorar" },
+          ]).map((strength) => <span key={strength.title}><CheckCircle2 size={16} /> {strength.title}</span>)}
         </div>
       </section>
+
+      {analysis && (
+        <section className="ai-week-plan">
+          <div className="section-heading">
+            <div><h2>Tu plan para esta semana</h2><p>Acciones creadas por Gemini con los datos de tu negocio</p></div>
+            <span className="analysis-label"><Sparkles size={14} /> 1 análisis semanal</span>
+          </div>
+          <div className="ai-week-grid">
+            {analysis.weeklyPlan.map((item) => (
+              <article key={`${item.day}-${item.idea}`}>
+                <span>{item.day} · {item.format}</span>
+                <h3>{item.idea}</h3>
+                <p>{item.goal}</p>
+                <button onClick={() => onNavigate("planificador")}>Abrir calendario <ArrowRight size={14} /></button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -1111,6 +1192,13 @@ const initialPlannedItems: PlannedContent[] = [
 
 const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+function toLocalDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function getCalendarWeek(offset: number) {
   const today = new Date();
   today.setHours(12, 0, 0, 0);
@@ -1124,7 +1212,7 @@ function getCalendarWeek(offset: number) {
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
   const format = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
-  return { days, label: `${format.format(monday)} – ${format.format(sunday)}` };
+  return { days, label: `${format.format(monday)} – ${format.format(sunday)}`, weekStart: toLocalDateKey(monday) };
 }
 
 function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (items: PlannedContent[]) => void }) {
@@ -1356,138 +1444,361 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
   );
 }
 
-const chartBars = [38, 50, 44, 66, 58, 76, 88];
+type WeeklyDraft = Omit<WeeklyMetrics, "id" | "weekStart" | "updatedAt">;
+type WeeklyNumberField = Exclude<keyof WeeklyDraft, "bestPost">;
 
-function ResultsView() {
-  const [period, setPeriod] = useState("7 días");
+const emptyWeeklyDraft = (followers: number): WeeklyDraft => ({
+  followers,
+  reach: 0,
+  profileVisits: 0,
+  likes: 0,
+  comments: 0,
+  saves: 0,
+  messages: 0,
+  bookings: 0,
+  posts: 0,
+  reels: 0,
+  stories: 0,
+  bestPost: "",
+});
+
+const numberFormat = new Intl.NumberFormat("es");
+
+function previousWeekKey(weekStart: string) {
+  const [year, month, day] = weekStart.split("-").map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  date.setDate(date.getDate() - 7);
+  return toLocalDateKey(date);
+}
+
+function metricDifference(current: number, previous?: number, percentage = false) {
+  if (previous === undefined) return { text: "Primera medición", direction: "neutral" };
+  if (percentage) {
+    const change = calculateChange(current, previous);
+    if (change === null) return { text: "Nuevo resultado", direction: "up" };
+    if (change === 0) return { text: "Sin cambio", direction: "neutral" };
+    return { text: `${change > 0 ? "+" : ""}${change}%`, direction: change > 0 ? "up" : "down" };
+  }
+  const difference = current - previous;
+  if (difference === 0) return { text: "Sin cambio", direction: "neutral" };
+  return { text: `${difference > 0 ? "+" : ""}${numberFormat.format(difference)}`, direction: difference > 0 ? "up" : "down" };
+}
+
+function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data: RomaCreceData) => void }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [showForm, setShowForm] = useState(false);
+  const week = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
+  const metrics = useMemo(
+    () => [...(data.weeklyMetrics ?? [])].sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
+    [data.weeklyMetrics],
+  );
+  const current = metrics.find((item) => item.weekStart === week.weekStart);
+  const previous = metrics.find((item) => item.weekStart === previousWeekKey(week.weekStart));
+  const closestFollowers = [...metrics]
+    .reverse()
+    .find((item) => item.weekStart < week.weekStart)?.followers ?? data.answers.followers;
+  const [draft, setDraft] = useState<WeeklyDraft>(() => emptyWeeklyDraft(closestFollowers));
+  const chartEntries = metrics.slice(-8);
+  const highestReach = Math.max(1, ...chartEntries.map((item) => item.reach));
+
+  const openForm = () => {
+    setDraft(current
+      ? {
+        followers: current.followers,
+        reach: current.reach,
+        profileVisits: current.profileVisits,
+        likes: current.likes,
+        comments: current.comments,
+        saves: current.saves,
+        messages: current.messages,
+        bookings: current.bookings,
+        posts: current.posts,
+        reels: current.reels,
+        stories: current.stories,
+        bestPost: current.bestPost,
+      }
+      : emptyWeeklyDraft(closestFollowers));
+    setShowForm(true);
+  };
+
+  const updateNumber = (field: WeeklyNumberField, value: string) => {
+    setDraft((currentDraft) => ({ ...currentDraft, [field]: Math.max(0, Number(value) || 0) }));
+  };
+
+  const saveWeek = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const entry: WeeklyMetrics = {
+      ...draft,
+      id: current?.id ?? crypto.randomUUID(),
+      weekStart: week.weekStart,
+      updatedAt: new Date().toISOString(),
+    };
+    const nextMetrics = [...metrics.filter((item) => item.weekStart !== week.weekStart), entry]
+      .sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+    onUpdate({ ...data, weeklyMetrics: nextMetrics });
+    setShowForm(false);
+  };
+
+  const reachChange = current && previous ? calculateChange(current.reach, previous.reach) : null;
+  const summary = !current
+    ? "Aún no has registrado esta semana. Tardarás unos dos minutos."
+    : !previous
+      ? "Esta es tu primera semana registrada. La próxima vez verás aquí la comparación."
+      : reachChange === null
+        ? "Esta semana ya tienes alcance para empezar a medir tu crecimiento."
+        : reachChange > 0
+          ? `Tu alcance creció ${reachChange}% frente a la semana anterior.`
+          : reachChange < 0
+            ? `Tu alcance bajó ${Math.abs(reachChange)}%. Revisemos qué puedes ajustar.`
+            : "Tu alcance se mantuvo igual que la semana anterior.";
+
+  const comparisonCards = current ? [
+    { label: "Seguidores", value: current.followers, change: metricDifference(current.followers, previous?.followers), icon: Users, color: "#ef8a2e" },
+    { label: "Alcance", value: current.reach, change: metricDifference(current.reach, previous?.reach, true), icon: Eye, color: "#7c5ce5" },
+    { label: "Mensajes", value: current.messages, change: metricDifference(current.messages, previous?.messages), icon: MessageCircleMore, color: "#e83387" },
+    { label: "Reservas", value: current.bookings, change: metricDifference(current.bookings, previous?.bookings), icon: CalendarCheck2, color: "#0c9b78" },
+  ] : [];
+
+  const funnelWidth = (value: number) => {
+    if (!current?.reach || value === 0) return "12%";
+    return `${Math.max(24, Math.min(100, (value / current.reach) * 100))}%`;
+  };
+
+  const opportunity = !current
+    ? { title: "Registra tu primera semana", text: "Con tus números reales podremos darte una recomendación útil." }
+    : current.messages === 0
+      ? { title: "Invita a escribirte", text: "Termina tus publicaciones con una pregunta o una invitación clara a enviar mensaje." }
+      : current.bookings === 0
+        ? { title: "Da seguimiento a los mensajes", text: "Responde con rapidez, aclara el siguiente paso y facilita la reserva." }
+        : current.bestPost
+          ? { title: "Repite lo que funcionó", text: `Crea una variación de “${current.bestPost}” durante la próxima semana.` }
+          : { title: "Anota tu mejor publicación", text: "La próxima semana identifica la publicación que más conversaciones generó." };
 
   return (
     <div className="page-content inner-page">
       <ViewIntro
-        eyebrow="MEDICIÓN Y APRENDIZAJE"
-        title="Resultados que puedes entender"
-        description="Mide lo que funciona y convierte cada dato en una próxima acción."
+        eyebrow="SEGUIMIENTO SEMANAL"
+        title="¿Cómo te fue esta semana?"
+        description="Anota tus números una vez por semana. RomaCrece guarda el historial y te muestra qué mejoró."
       >
-        <label className="period-select">
-          <CalendarDays size={16} />
-          <select
-            aria-label="Período de resultados"
-            value={period}
-            onChange={(event) => setPeriod(event.target.value)}
-          >
-            <option>7 días</option>
-            <option>30 días</option>
-            <option>90 días</option>
-          </select>
-        </label>
+        <div className="weekly-actions">
+          <div className="week-switcher" aria-label="Cambiar semana">
+            <button aria-label="Semana anterior" onClick={() => setWeekOffset((value) => value - 1)}><ChevronLeft size={17} /></button>
+            <span><CalendarDays size={15} /> {week.label}</span>
+            <button aria-label="Semana siguiente" disabled={weekOffset >= 0} onClick={() => setWeekOffset((value) => Math.min(0, value + 1))}><ChevronRight size={17} /></button>
+          </div>
+          <button className="primary-button" onClick={openForm}>
+            {current ? <Check size={17} /> : <Plus size={17} />}
+            {current ? "Editar semana" : "Registrar resultados"}
+          </button>
+        </div>
       </ViewIntro>
 
-      <section className="results-highlight">
-        <div className="results-copy">
-          <div className="card-kicker"><TrendingUp size={17} /> RESUMEN DEL PERÍODO</div>
-          <h2>Tu contenido está llegando a más personas</h2>
-          <p>
-            Creciste un <strong>18%</strong> en alcance y generaste
-            <strong> 14 reservas</strong> desde Instagram durante los últimos {period}.
-          </p>
-          <div className="result-win">
-            <Award size={18} />
-            <span><strong>Mejor resultado:</strong> Reel “3 errores que dañan tus uñas”</span>
+      {!current ? (
+        <section className="weekly-empty">
+          <div className="weekly-empty-icon"><ChartNoAxesCombined size={28} /></div>
+          <div>
+            <span>PRIMER PASO</span>
+            <h2>Convierte tus números en decisiones</h2>
+            <p>{summary} Puedes encontrarlos en las estadísticas de Instagram y también usar valores aproximados.</p>
           </div>
-        </div>
-        <div className="growth-figure">
-          <span>CRECIMIENTO GENERAL</span>
-          <strong>+21%</strong>
-          <small>respecto al período anterior</small>
-        </div>
-      </section>
-
-      <section className="result-metrics">
-        {[
-          { label: "Alcance", value: "12,438", change: "+18%", icon: Eye, color: "#7c5ce5" },
-          { label: "Interacciones", value: "864", change: "+12%", icon: Heart, color: "#e83387" },
-          { label: "Nuevos seguidores", value: "126", change: "+9%", icon: Users, color: "#ef8a2e" },
-          { label: "Reservas", value: "14", change: "+40%", icon: CalendarCheck2, color: "#0c9b78" },
-        ].map((item) => {
-          const Icon = item.icon;
-          return (
-            <article key={item.label}>
-              <span style={{ color: item.color, backgroundColor: `${item.color}14` }}><Icon size={20} /></span>
-              <div><small>{item.label}</small><strong>{item.value}</strong></div>
-              <em><TrendingUp size={12} /> {item.change}</em>
-            </article>
-          );
-        })}
-      </section>
-
-      <section className="analytics-grid">
-        <article className="reach-chart">
-          <div className="panel-heading">
-            <div>
-              <span>ALCANCE DIARIO</span>
-              <h3>Tu mejor día fue el domingo</h3>
-            </div>
-            <span className="chart-total">12.4K total</span>
-          </div>
-          <div className="chart-area" aria-label="Gráfico de alcance diario">
-            <div className="chart-lines"><i /><i /><i /><i /></div>
-            <div className="bar-columns">
-              {chartBars.map((height, index) => (
-                <div className="bar-column" key={index}>
-                  <span className={index === 6 ? "best" : ""} style={{ height: `${height}%` }}>
-                    {index === 6 && <em>2.4K</em>}
-                  </span>
-                  <small>{["L", "M", "X", "J", "V", "S", "D"][index]}</small>
+          <button className="primary-button" onClick={openForm}><Plus size={17} /> Registrar esta semana</button>
+        </section>
+      ) : (
+        <>
+          <section className="results-highlight weekly-highlight">
+            <div className="results-copy">
+              <div className="card-kicker"><TrendingUp size={17} /> RESUMEN DE LA SEMANA</div>
+              <h2>{summary}</h2>
+              <p>
+                Publicaste <strong>{current.posts} publicaciones</strong>, <strong>{current.reels} Reels</strong> y
+                recibiste <strong> {current.messages} mensajes</strong> relacionados con tu negocio.
+              </p>
+              {current.bestPost && (
+                <div className="result-win">
+                  <Award size={18} />
+                  <span><strong>Lo que mejor funcionó:</strong> {current.bestPost}</span>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        </article>
+            <div className="growth-figure">
+              <span>RESERVAS LOGRADAS</span>
+              <strong>{current.bookings}</strong>
+              <small>desde Instagram esta semana</small>
+            </div>
+          </section>
 
-        <article className="conversion-card">
+          <section className="result-metrics">
+            {comparisonCards.map((item) => {
+              const Icon = item.icon;
+              return (
+                <article key={item.label}>
+                  <span style={{ color: item.color, backgroundColor: `${item.color}14` }}><Icon size={20} /></span>
+                  <div><small>{item.label}</small><strong>{numberFormat.format(item.value)}</strong></div>
+                  <em className={`change-${item.change.direction}`}>
+                    {item.change.direction === "down" ? <TrendingUp className="trend-down" size={12} /> : <TrendingUp size={12} />}
+                    {item.change.text}
+                  </em>
+                </article>
+              );
+            })}
+          </section>
+
+          <section className="analytics-grid">
+            <article className="reach-chart">
+              <div className="panel-heading">
+                <div>
+                  <span>HISTORIAL DE ALCANCE</span>
+                  <h3>{chartEntries.length > 1 ? "Así avanza tu cuenta semana a semana" : "Tu historial comienza aquí"}</h3>
+                </div>
+                <span className="chart-total">{chartEntries.length} {chartEntries.length === 1 ? "semana" : "semanas"}</span>
+              </div>
+              <div className="chart-area weekly-chart" aria-label="Gráfico de alcance por semana">
+                <div className="chart-lines"><i /><i /><i /><i /></div>
+                <div className="bar-columns" style={{ gridTemplateColumns: `repeat(${chartEntries.length}, minmax(0, 1fr))` }}>
+                  {chartEntries.map((item) => {
+                    const isSelected = item.weekStart === week.weekStart;
+                    const labelDate = new Date(`${item.weekStart}T12:00:00`);
+                    return (
+                      <div className="bar-column" key={item.weekStart}>
+                        <span className={isSelected ? "best" : ""} style={{ height: `${Math.max(8, (item.reach / highestReach) * 100)}%` }}>
+                          {isSelected && <em>{numberFormat.format(item.reach)}</em>}
+                        </span>
+                        <small>{new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }).format(labelDate)}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </article>
+
+            <article className="conversion-card">
+              <div className="panel-heading">
+                <div>
+                  <span>CAMINO A LA RESERVA</span>
+                  <h3>De Instagram a una clienta</h3>
+                </div>
+                <Target size={19} />
+              </div>
+              <div className="funnel">
+                <div style={{ width: "100%" }}><span>{numberFormat.format(current.reach)}</span><small>Personas alcanzadas</small></div>
+                <div style={{ width: funnelWidth(current.profileVisits) }}><span>{numberFormat.format(current.profileVisits)}</span><small>Visitas al perfil</small></div>
+                <div style={{ width: funnelWidth(current.messages) }}><span>{numberFormat.format(current.messages)}</span><small>Mensajes recibidos</small></div>
+                <div style={{ width: funnelWidth(current.bookings) }}><span>{numberFormat.format(current.bookings)}</span><small>Reservas logradas</small></div>
+              </div>
+              <p><MessageSquareText size={14} /> Estos datos los registraste tú; no son cifras de demostración.</p>
+            </article>
+          </section>
+
+          <section className="insights-row">
+            <article className="insight-card positive">
+              <span><Heart size={19} /></span>
+              <div>
+                <small>RESPUESTA DEL PÚBLICO</small>
+                <h3>{numberFormat.format(current.likes + current.comments + current.saves)} interacciones</h3>
+                <p>{current.likes} Me gusta · {current.comments} comentarios · {current.saves} guardados.</p>
+              </div>
+            </article>
+            <article className="insight-card attention">
+              <span><AlertCircle size={19} /></span>
+              <div>
+                <small>PRÓXIMA OPORTUNIDAD</small>
+                <h3>{opportunity.title}</h3>
+                <p>{opportunity.text}</p>
+              </div>
+            </article>
+            <article className="insight-card neutral">
+              <span><Clock3 size={19} /></span>
+              <div>
+                <small>ACTIVIDAD DE LA SEMANA</small>
+                <h3>{current.posts + current.reels} contenidos publicados</h3>
+                <p>{current.posts} publicaciones · {current.reels} Reels · {current.stories} Stories.</p>
+              </div>
+            </article>
+          </section>
+        </>
+      )}
+
+      {metrics.length > 0 && (
+        <section className="weekly-history">
           <div className="panel-heading">
-            <div>
-              <span>CONVERSIÓN</span>
-              <h3>De Instagram a la reserva</h3>
-            </div>
-            <Target size={19} />
+            <div><span>TU HISTORIAL</span><h3>Semanas registradas</h3></div>
+            <small>Guardado automáticamente</small>
           </div>
-          <div className="funnel">
-            <div style={{ width: "100%" }}><span>12,438</span><small>Personas alcanzadas</small></div>
-            <div style={{ width: "78%" }}><span>1,208</span><small>Visitas al perfil</small></div>
-            <div style={{ width: "56%" }}><span>184</span><small>Clics para reservar</small></div>
-            <div style={{ width: "38%" }}><span>14</span><small>Reservas confirmadas</small></div>
+          <div className="weekly-history-list">
+            {[...metrics].reverse().slice(0, 8).map((item) => (
+              <button key={item.weekStart} className={item.weekStart === week.weekStart ? "active" : ""} onClick={() => {
+                const currentMonday = new Date(`${getCalendarWeek(0).weekStart}T12:00:00`);
+                const itemMonday = new Date(`${item.weekStart}T12:00:00`);
+                setWeekOffset(Math.round((itemMonday.getTime() - currentMonday.getTime()) / 604800000));
+              }}>
+                <span>Semana del {new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }).format(new Date(`${item.weekStart}T12:00:00`))}</span>
+                <strong>{numberFormat.format(item.reach)} alcance</strong>
+                <small>{item.messages} mensajes · {item.bookings} reservas</small>
+              </button>
+            ))}
           </div>
-          <p><TrendingUp size={14} /> Tu conversión subió del 5.4% al 7.6%</p>
-        </article>
-      </section>
+        </section>
+      )}
 
-      <section className="insights-row">
-        <article className="insight-card positive">
-          <span><Zap size={19} /></span>
-          <div>
-            <small>HAZ MÁS DE ESTO</small>
-            <h3>Reels educativos cortos</h3>
-            <p>Generan 2.3 veces más guardados que tus otras publicaciones.</p>
-          </div>
-        </article>
-        <article className="insight-card attention">
-          <span><AlertCircle size={19} /></span>
-          <div>
-            <small>PRÓXIMA OPORTUNIDAD</small>
-            <h3>Convierte visitas en mensajes</h3>
-            <p>Añade una pregunta clara al final de tus próximos captions.</p>
-          </div>
-        </article>
-        <article className="insight-card neutral">
-          <span><Clock3 size={19} /></span>
-          <div>
-            <small>MEJOR MOMENTO</small>
-            <h3>Miércoles a las 8:00 p. m.</h3>
-            <p>Tu audiencia interactúa un 31% más en esta franja.</p>
-          </div>
-        </article>
-      </section>
+      {showForm && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowForm(false)}>
+          <form
+            className="small-modal weekly-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Registrar resultados semanales"
+            onSubmit={saveWeek}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <span><ChartNoAxesCombined size={14} /> SEMANA {week.label.toUpperCase()}</span>
+                <h2>{current ? "Actualiza tus resultados" : "Cuéntanos cómo te fue"}</h2>
+              </div>
+              <button type="button" aria-label="Cerrar formulario" onClick={() => setShowForm(false)}><X size={20} /></button>
+            </div>
+            <p className="weekly-form-help">Usa las estadísticas de Instagram. Si no tienes un dato exacto, puedes escribir un aproximado.</p>
+
+            <fieldset className="weekly-fieldset">
+              <legend>Tu cuenta</legend>
+              <div className="form-row">
+                <label className="form-field"><span>Seguidores actuales</span><input required min="0" type="number" value={draft.followers} onChange={(event) => updateNumber("followers", event.target.value)} /></label>
+                <label className="form-field"><span>Personas alcanzadas</span><input required min="0" type="number" value={draft.reach} onChange={(event) => updateNumber("reach", event.target.value)} /></label>
+                <label className="form-field"><span>Visitas al perfil</span><input required min="0" type="number" value={draft.profileVisits} onChange={(event) => updateNumber("profileVisits", event.target.value)} /></label>
+              </div>
+            </fieldset>
+
+            <fieldset className="weekly-fieldset">
+              <legend>Respuesta del público</legend>
+              <div className="form-row">
+                <label className="form-field"><span>Me gusta</span><input required min="0" type="number" value={draft.likes} onChange={(event) => updateNumber("likes", event.target.value)} /></label>
+                <label className="form-field"><span>Comentarios</span><input required min="0" type="number" value={draft.comments} onChange={(event) => updateNumber("comments", event.target.value)} /></label>
+                <label className="form-field"><span>Guardados</span><input required min="0" type="number" value={draft.saves} onChange={(event) => updateNumber("saves", event.target.value)} /></label>
+              </div>
+            </fieldset>
+
+            <fieldset className="weekly-fieldset">
+              <legend>Clientes y contenido</legend>
+              <div className="form-row">
+                <label className="form-field"><span>Mensajes recibidos</span><input required min="0" type="number" value={draft.messages} onChange={(event) => updateNumber("messages", event.target.value)} /></label>
+                <label className="form-field"><span>Reservas logradas</span><input required min="0" type="number" value={draft.bookings} onChange={(event) => updateNumber("bookings", event.target.value)} /></label>
+                <label className="form-field"><span>Publicaciones</span><input required min="0" type="number" value={draft.posts} onChange={(event) => updateNumber("posts", event.target.value)} /></label>
+              </div>
+              <div className="form-row">
+                <label className="form-field"><span>Reels</span><input required min="0" type="number" value={draft.reels} onChange={(event) => updateNumber("reels", event.target.value)} /></label>
+                <label className="form-field"><span>Stories</span><input required min="0" type="number" value={draft.stories} onChange={(event) => updateNumber("stories", event.target.value)} /></label>
+                <label className="form-field"><span>Tu mejor publicación</span><input value={draft.bestPost} onChange={(event) => setDraft((value) => ({ ...value, bestPost: event.target.value }))} placeholder="Ej.: Reel antes y después" /></label>
+              </div>
+            </fieldset>
+
+            <div className="planner-modal-actions">
+              <button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button>
+              <button type="submit" className="primary-button"><Check size={17} /> Guardar mi semana</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
@@ -1628,10 +1939,10 @@ export default function Home() {
         </div>
         <div className="view-stage" key={activeView}>
           {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} />}
-          {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} />}
+          {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "ideas" && <IdeasView data={data} onPlan={planIdea} onUpdate={updateData} />}
           {activeView === "planificador" && <PlannerView items={data.plannedItems ?? initialPlannedItems} onUpdate={(items) => updateData({ ...data, plannedItems: items })} />}
-          {activeView === "resultados" && <ResultsView />}
+          {activeView === "resultados" && <ResultsView data={data} onUpdate={updateData} />}
         </div>
       </div>
       <nav className="mobile-nav" aria-label="Navegación móvil">

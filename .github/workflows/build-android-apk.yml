@@ -1,0 +1,66 @@
+name: Build RomaCrece Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "android/**"
+      - "app/**"
+      - "pages/**"
+      - "public/**"
+      - "scripts/**"
+      - "capacitor.config.json"
+      - "vite.android.config.ts"
+      - "package.json"
+      - "package-lock.json"
+
+jobs:
+  build-debug-apk:
+    runs-on: windows-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync RomaCrece Android
+        run: npm run android:sync
+
+      - name: Build APK
+        working-directory: android
+        run: .\gradlew.bat assembleDebug
+
+      - name: Prepare download
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path apk-output
+          $apk = Get-ChildItem -Path android/app/build/outputs/apk -Recurse -Filter "*.apk" | Select-Object -First 1
+          if (-not $apk) {
+            throw "No se encontro la APK de RomaCrece"
+          }
+          Copy-Item $apk.FullName apk-output/romacrece-v0.1.0.apk
+
+      - name: Upload RomaCrece APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: romacrece-v0.1.0-apk
+          path: apk-output/romacrece-v0.1.0.apk

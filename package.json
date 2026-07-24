@@ -11,13 +11,19 @@
     "dev:pages": "vite --config vite.pages.config.ts",
     "build": "vite build && node scripts/validate-artifact.mjs",
     "build:pages": "vite build --config vite.pages.config.ts",
+    "build:android": "vite build --config vite.android.config.ts",
+    "android:add": "npm run build:android && npx cap add android && npm run android:icons",
+    "android:sync": "npm run build:android && npx cap sync android && npm run android:icons",
+    "android:icons": "powershell -ExecutionPolicy Bypass -File scripts/apply-android-icons.ps1",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs tests/audit-model.test.ts",
     "validate:artifact": "node scripts/validate-artifact.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern docs/assets",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern docs/assets --ignore-pattern android-web --ignore-pattern android",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.4",
+    "@capacitor/core": "^8.3.4",
     "@supabase/supabase-js": "^2.110.8",
     "drizzle-orm": "0.45.2",
     "lucide-react": "^0.468.0",
@@ -26,6 +32,7 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.4",
     "@cloudflare/vite-plugin": "1.37.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
