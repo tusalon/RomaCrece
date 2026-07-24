@@ -123,6 +123,12 @@ const emptyBusiness: BusinessProfile = {
   instagram: "",
 };
 
+const simpleRatingLabels = ["Muy poco", "Poco", "Bien", "Muy bien", "Excelente"];
+
+function simpleRating(value: number) {
+  return simpleRatingLabels[Math.max(1, Math.min(5, Math.round(value))) - 1];
+}
+
 function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -250,11 +256,11 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
           </div>
           <div className="onboarding-heading">
             <span>PASO {step} DE 2</span>
-            <h2>{step === 1 ? "Conozcamos tu negocio" : "Auditemos tu Instagram"}</h2>
+            <h2>{step === 1 ? "Conozcamos tu negocio" : "Veamos cómo está tu Instagram"}</h2>
             <p>
               {step === 1
                 ? "Estos datos nos ayudan a adaptar el diagnóstico a tu realidad."
-                : "Usa estimados si todavía no tienes todas las métricas exactas."}
+                : "No necesitas conocer métricas: responde según lo que ves cada día."}
             </p>
           </div>
 
@@ -306,21 +312,48 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
                 <button type="button" className={answers.bookingLink ? "yes" : ""} onClick={() => updateAnswer("bookingLink", !answers.bookingLink)}>{answers.bookingLink ? "Sí" : "No"}</button>
               </div>
               <label className="onboarding-field range-field">
-                <span>Consistencia visual <strong>{answers.visualConsistency}/5</strong></span>
+                <span>¿Tus publicaciones mantienen un estilo parecido? <strong>{simpleRating(answers.visualConsistency)}</strong></span>
                 <input type="range" min="1" max="5" value={answers.visualConsistency} onChange={(event) => updateAnswer("visualConsistency", Number(event.target.value))} />
+                <small className="field-help">1 = cambian mucho · 5 = se reconocen enseguida</small>
               </label>
               <label className="onboarding-field range-field">
-                <span>Calidad del contenido <strong>{answers.contentQuality}/5</strong></span>
+                <span>¿Qué tan bien se ven tus fotos y videos? <strong>{simpleRating(answers.contentQuality)}</strong></span>
                 <input type="range" min="1" max="5" value={answers.contentQuality} onChange={(event) => updateAnswer("contentQuality", Number(event.target.value))} />
+                <small className="field-help">Piensa en la luz, claridad y presentación</small>
               </label>
-              <label className="onboarding-field"><span>Publicaciones por semana</span><input type="number" min="0" max="14" required value={answers.postsPerWeek} onChange={(event) => updateAnswer("postsPerWeek", Number(event.target.value))} /></label>
-              <label className="onboarding-field"><span>Engagement aproximado (%)</span><input type="number" min="0" max="30" step="0.1" required value={answers.engagementRate} onChange={(event) => updateAnswer("engagementRate", Number(event.target.value))} /></label>
-              <label className="onboarding-field"><span>Captions con llamada a la acción (%)</span><input type="number" min="0" max="100" required value={answers.captionsWithCta} onChange={(event) => updateAnswer("captionsWithCta", Number(event.target.value))} /></label>
-              <label className="onboarding-field"><span>Mensajes recibidos al mes</span><input type="number" min="0" required value={answers.messagesPerMonth} onChange={(event) => updateAnswer("messagesPerMonth", Number(event.target.value))} /></label>
-              <label className="onboarding-field wide"><span>Reservas obtenidas desde Instagram al mes</span><input type="number" min="0" required value={answers.bookingsPerMonth} onChange={(event) => updateAnswer("bookingsPerMonth", Number(event.target.value))} /></label>
+              <label className="onboarding-field">
+                <span>¿Cuántas veces publicas en una semana?</span>
+                <input type="number" min="0" max="14" required value={answers.postsPerWeek} onChange={(event) => updateAnswer("postsPerWeek", Number(event.target.value))} />
+                <small className="field-help">Sin contar las historias</small>
+              </label>
+              <label className="onboarding-field range-field">
+                <span>¿Tu comunidad reacciona a lo que publicas? <strong>{simpleRating(answers.engagementRate)}</strong></span>
+                <input type="range" min="1" max="5" value={Math.min(5, answers.engagementRate)} onChange={(event) => updateAnswer("engagementRate", Number(event.target.value))} />
+                <small className="field-help">Piensa en los Me gusta, comentarios y respuestas</small>
+              </label>
+              <label className="onboarding-field">
+                <span>¿Con qué frecuencia invitas a escribirte o reservar?</span>
+                <select value={answers.captionsWithCta} onChange={(event) => updateAnswer("captionsWithCta", Number(event.target.value))}>
+                  <option value="0">Nunca</option>
+                  <option value="40">A veces</option>
+                  <option value="75">Casi siempre</option>
+                  <option value="100">Siempre</option>
+                </select>
+                <small className="field-help">Por ejemplo: “Escríbeme” o “Reserva tu cita”</small>
+              </label>
+              <label className="onboarding-field">
+                <span>¿Cuántas personas te escriben por Instagram al mes?</span>
+                <input type="number" min="0" required value={answers.messagesPerMonth} onChange={(event) => updateAnswer("messagesPerMonth", Number(event.target.value))} />
+                <small className="field-help">Un aproximado está bien</small>
+              </label>
+              <label className="onboarding-field wide">
+                <span>De esas personas, ¿cuántas terminan reservando?</span>
+                <input type="number" min="0" required value={answers.bookingsPerMonth} onChange={(event) => updateAnswer("bookingsPerMonth", Number(event.target.value))} />
+                <small className="field-help">También puedes usar un aproximado</small>
+              </label>
               <div className="onboarding-actions wide">
                 <button className="secondary-button" type="button" onClick={() => setStep(1)}><ChevronLeft size={17} /> Volver</button>
-                <button className="primary-button" type="submit">Calcular mi puntuación <Sparkles size={17} /></button>
+                <button className="primary-button" type="submit">Ver mi resultado <Sparkles size={17} /></button>
               </div>
             </form>
           )}
