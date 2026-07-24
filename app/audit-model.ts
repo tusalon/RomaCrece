@@ -43,6 +43,35 @@ export type RomaCreceData = {
   business: BusinessProfile;
   answers: AuditAnswers;
   audit: AuditResult;
+  ideas?: ContentIdea[];
+  plannedItems?: PlannedContent[];
+};
+
+export type ContentIdea = {
+  id: number;
+  format: "Reel" | "Carrusel" | "Historia";
+  goal: "Atraer" | "Educar" | "Vender" | "Fidelizar";
+  title: string;
+  hook: string;
+  script: string;
+  caption: string;
+  hashtags: string;
+  reason: string;
+  score: number;
+  color: string;
+  saved: boolean;
+  createdAt: string;
+};
+
+export type PlannedContent = {
+  id: number;
+  week?: number;
+  day: number;
+  time: string;
+  format: ContentIdea["format"];
+  title: string;
+  status: "Idea" | "Borrador" | "Listo" | "Publicado";
+  color: string;
 };
 
 export const STORAGE_KEY = "romacrece:mvp:v1";
@@ -148,3 +177,42 @@ export function businessInitials(name: string): string {
     .join("") || "RC";
 }
 
+const ideaTemplates: Record<ContentIdea["goal"], Array<Pick<ContentIdea, "format" | "title" | "hook" | "reason" | "color">>> = {
+  Atraer: [
+    { format: "Reel", title: "3 errores que pueden arruinar tu próximo resultado", hook: "Si haces una de estas tres cosas, detente...", reason: "Formato pensado para alcance y guardados", color: "#e83387" },
+    { format: "Carrusel", title: "La guía rápida que toda nueva clienta necesita", hook: "Guarda esto antes de elegir tu próximo servicio", reason: "Contenido fácil de compartir", color: "#7c5ce5" },
+  ],
+  Educar: [
+    { format: "Carrusel", title: "Cómo cuidar tus resultados para que duren más", hook: "Tu servicio puede durar mucho más si haces esto...", reason: "Refuerza tu autoridad profesional", color: "#7c5ce5" },
+    { format: "Reel", title: "Mito o realidad: lo que debes saber antes de reservar", hook: "Te dijeron esto muchas veces, pero no es exactamente así...", reason: "Responde una duda frecuente", color: "#e83387" },
+  ],
+  Vender: [
+    { format: "Reel", title: "Transformación real: del antes al resultado final", hook: "Mira cómo cambió este resultado en una sola cita...", reason: "Muestra valor y facilita la reserva", color: "#0c9b78" },
+    { format: "Historia", title: "Últimos espacios disponibles de la semana", hook: "Si estabas esperando el momento, es ahora", reason: "Crea urgencia sin perder cercanía", color: "#ef8a2e" },
+  ],
+  Fidelizar: [
+    { format: "Historia", title: "Deja que tu comunidad elija el próximo diseño", hook: "¿Opción A, B o C? Tú decides.", reason: "Invita a participar de forma sencilla", color: "#ef8a2e" },
+    { format: "Carrusel", title: "Lo que más agradecemos de nuestras clientas", hook: "Este negocio crece gracias a personas como tú", reason: "Fortalece el vínculo con tu comunidad", color: "#7c5ce5" },
+  ],
+};
+
+export function generateContentIdea(business: BusinessProfile, goal: ContentIdea["goal"], seed = Date.now()): ContentIdea {
+  const options = ideaTemplates[goal];
+  const template = options[Math.abs(seed) % options.length];
+  const service = business.category.toLowerCase();
+  const cityTag = business.city.replace(/\s+/g, "");
+  const brandTag = business.name.replace(/[^\p{L}\p{N}]/gu, "");
+
+  return {
+    id: seed,
+    goal,
+    ...template,
+    title: `${template.title} · ${business.name}`,
+    script: `Plano 1: muestra el resultado final.\nPlano 2: enseña un detalle del proceso.\nPlano 3: comparte un consejo profesional.\nCierre: invita a escribir o reservar con ${business.name}.`,
+    caption: `${template.hook}\n\nEn ${business.name} queremos que tomes decisiones con confianza. Guarda esta publicación y escríbenos cuando quieras reservar.\n\n📍 ${business.city}`,
+    hashtags: `#${brandTag} #${cityTag} #Belleza #${service.replace(/[^\p{L}\p{N}]/gu, "")} #ReservaTuCita`,
+    score: Math.min(98, 86 + (seed % 12)),
+    saved: false,
+    createdAt: new Date().toISOString(),
+  };
+}

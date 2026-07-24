@@ -71,6 +71,27 @@ El build configura automáticamente la ruta base `/RomaCrece/` y copia el
 archivo `.nojekyll`. Los archivos de `docs/assets/` son generados y no deben
 editarse manualmente.
 
+## Preparar Supabase
+
+La aplicación usa Supabase Auth con correo y contraseña. Negocios, auditorías,
+ideas y publicaciones planificadas se sincronizan por usuario; el almacenamiento
+local se conserva únicamente como respaldo. La base remota está definida en
+`supabase/migrations/202607230001_initial_schema.sql` con políticas RLS.
+
+1. Crea un proyecto en Supabase.
+2. Ejecuta la migración desde el editor SQL o mediante Supabase CLI.
+3. Copia `.env.example` como `.env.local`.
+4. Configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY`.
+
+La clave `service_role` nunca debe utilizarse en el navegador ni guardarse en
+este repositorio.
+
+Para que la confirmación por correo regrese a la aplicación, configura en
+**Supabase → Authentication → URL Configuration**:
+
+- **Site URL:** `https://tusalon.github.io/RomaCrece/`
+- **Redirect URLs:** `https://tusalon.github.io/RomaCrece/` y `http://localhost:3000/`
+
 ## Archivos principales
 
 - `app/page.tsx`: interfaz y comportamiento del prototipo.
@@ -81,12 +102,10 @@ editarse manualmente.
 
 El siguiente MVP deberá incorporar:
 
-1. Supabase Auth y políticas RLS seguras.
-2. Aislamiento multinegocio mediante `negocio_id`.
-3. Onboarding de negocios.
-4. Registro manual de métricas.
-5. Generación de contenido mediante una función segura del servidor.
-6. Integración posterior con las API oficiales de las redes sociales.
+1. Recuperación de contraseña y administración de cuenta.
+2. Soporte para varios negocios por usuario.
+3. Generación de contenido mediante una función segura del servidor.
+4. Integración posterior con las API oficiales de las redes sociales.
 
 ## Seguridad
 

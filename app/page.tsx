@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import type { User } from "@supabase/supabase-js";
 import {
   AlertCircle,
   ArrowRight,
@@ -34,7 +35,6 @@ import {
   MessageSquareText,
   MoreHorizontal,
   MousePointerClick,
-  Play,
   Plus,
   RefreshCw,
   ScanSearch,
@@ -55,11 +55,16 @@ import {
   STORAGE_KEY,
   businessInitials,
   calculateAudit,
+  generateContentIdea,
   initialAuditAnswers,
   type AuditAnswers,
   type BusinessProfile,
+  type ContentIdea,
+  type PlannedContent,
   type RomaCreceData,
 } from "./audit-model";
+import { loadCloudData, saveCloudData } from "./supabase-data";
+import { isSupabaseConfigured, supabase } from "./supabase";
 
 type View = "inicio" | "auditoria" | "ideas" | "planificador" | "resultados";
 
@@ -117,6 +122,73 @@ const emptyBusiness: BusinessProfile = {
   objective: "Conseguir más reservas",
   instagram: "",
 };
+
+function AuthScreen() {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setBusy(true);
+    setMessage("");
+    const result = mode === "login"
+      ? await supabase.auth.signInWithPassword({ email, password })
+      : await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString() },
+        });
+    setBusy(false);
+    if (result.error) {
+      setMessage(result.error.message);
+      return;
+    }
+    if (mode === "register" && !result.data.session) {
+      setMessage("Revisa tu correo y confirma la cuenta para continuar.");
+    }
+  };
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-brand-panel">
+        <Brand />
+        <div>
+          <span><Sparkles size={15} /> TU CRECIMIENTO, GUARDADO</span>
+          <h1>Tu estrategia de contenido disponible donde la necesites.</h1>
+          <p>Accede para conservar auditorías, ideas y publicaciones en una cuenta protegida.</p>
+        </div>
+        <small>RomaCrece · Parte del ecosistema RomaHub</small>
+      </section>
+      <section className="auth-form-panel">
+        <form className="auth-card" onSubmit={submit}>
+          <span className="auth-kicker">{mode === "login" ? "BIENVENIDA DE NUEVO" : "CREA TU CUENTA"}</span>
+          <h2>{mode === "login" ? "Entra a RomaCrece" : "Empieza a crecer"}</h2>
+          <p>{mode === "login" ? "Continúa donde dejaste tu estrategia." : "Guarda y sincroniza el progreso de tu negocio."}</p>
+          <label>
+            <span>Correo electrónico</span>
+            <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@negocio.com" />
+          </label>
+          <label>
+            <span>Contraseña</span>
+            <input type="password" required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mínimo 6 caracteres" />
+          </label>
+          {message && <div className="auth-message" role="status">{message}</div>}
+          <button className="primary-button auth-submit" disabled={busy} type="submit">
+            {busy ? <LoaderCircle className="spin" size={17} /> : mode === "login" ? "Entrar" : "Crear cuenta"}
+            {!busy && <ArrowRight size={17} />}
+          </button>
+          <button className="auth-switch" type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setMessage(""); }}>
+            {mode === "login" ? "¿Aún no tienes cuenta? Crear una" : "¿Ya tienes cuenta? Iniciar sesión"}
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
 
 function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; onComplete: (data: RomaCreceData) => void }) {
   const [step, setStep] = useState<1 | 2>(initialData ? 2 : 1);
@@ -307,12 +379,14 @@ function Sidebar({
   business,
   activeView,
   onNavigate,
+  onSignOut,
   mobileOpen,
   closeMobile,
 }: {
   business: BusinessProfile;
   activeView: View;
   onNavigate: (view: View) => void;
+  onSignOut: () => void;
   mobileOpen: boolean;
   closeMobile: () => void;
 }) {
@@ -380,14 +454,14 @@ function Sidebar({
             <Settings size={19} />
             <span>Configuración</span>
           </button>
-          <div className="profile">
+          <button className="profile" type="button" onClick={onSignOut} aria-label="Cerrar sesión">
             <div className="profile-avatar">{initials}</div>
             <div className="profile-copy">
               <strong>{business.name}</strong>
               <span>{business.category}</span>
             </div>
             <LogOut size={17} />
-          </div>
+          </button>
         </div>
       </aside>
     </>
@@ -780,71 +854,29 @@ function AuditView({ data, onEdit, onNavigate }: { data: RomaCreceData; onEdit: 
   );
 }
 
-type Idea = {
-  id: number;
-  format: string;
-  title: string;
-  hook: string;
-  reason: string;
-  score: number;
-  color: string;
-  icon: typeof Video;
-  new?: boolean;
-};
-
-const initialIdeas: Idea[] = [
-  {
-    id: 1,
-    format: "REEL EDUCATIVO",
-    title: "3 señales de que tus uñas necesitan un descanso",
-    hook: "Si tus uñas se ven así, no las ignores...",
-    reason: "Alto potencial de guardados",
-    score: 94,
-    color: "#e83387",
-    icon: Video,
-  },
-  {
-    id: 2,
-    format: "CARRUSEL",
-    title: "5 diseños que hacen que tus manos se vean elegantes",
-    hook: "Guarda esta guía para tu próxima cita ✨",
-    reason: "Ideal para conseguir reservas",
-    score: 91,
-    color: "#7c5ce5",
-    icon: ImageIcon,
-  },
-  {
-    id: 3,
-    format: "HISTORIAS",
-    title: "Elige el diseño de nuestra próxima clienta",
-    hook: "¿Opción A, B o C? Tú decides.",
-    reason: "Aumenta la participación",
-    score: 87,
-    color: "#ef8a2e",
-    icon: MessageCircleMore,
-  },
-  {
-    id: 4,
-    format: "REEL DE CONVERSIÓN",
-    title: "Transformación completa en 12 segundos",
-    hook: "De uñas sin vida a este resultado...",
-    reason: "Muestra tu trabajo y genera confianza",
-    score: 89,
-    color: "#0c9b78",
-    icon: Play,
-  },
-];
+const ideaIcon = (format: ContentIdea["format"]) =>
+  format === "Reel" ? Video : format === "Carrusel" ? ImageIcon : MessageCircleMore;
 
 function IdeaModal({
   idea,
   onClose,
   onPlan,
 }: {
-  idea: Idea;
+  idea: ContentIdea;
   onClose: () => void;
   onPlan: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [hook, setHook] = useState(idea.hook);
+  const [script, setScript] = useState(idea.script);
+  const [caption, setCaption] = useState(idea.caption);
+  const [hashtags, setHashtags] = useState(idea.hashtags);
+
+  const copyContent = async () => {
+    await navigator.clipboard.writeText(`${hook}\n\n${script}\n\n${caption}\n\n${hashtags}`);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  };
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
@@ -865,34 +897,33 @@ function IdeaModal({
         <div className="editor-grid">
           <div className="editor-field">
             <label>Gancho</label>
-            <textarea defaultValue={idea.hook} />
+            <textarea value={hook} onChange={(event) => setHook(event.target.value)} />
           </div>
           <div className="editor-field">
             <label>Guion</label>
             <textarea
               className="tall"
-              defaultValue={`Plano 1: muestra el resultado final.\nPlano 2: enseña el proceso rápidamente.\nPlano 3: presenta el detalle más llamativo.\nCierre: invita a reservar desde el enlace de tu perfil.`}
+              value={script}
+              onChange={(event) => setScript(event.target.value)}
             />
           </div>
           <div className="editor-field">
             <label>Caption sugerido</label>
             <textarea
               className="tall"
-              defaultValue={`Un pequeño cambio puede transformar por completo tus manos ✨\n\n¿Cuál diseño elegirías tú? Déjalo en los comentarios y guarda esta idea para tu próxima cita.\n\nReserva tu espacio desde el enlace del perfil.`}
+              value={caption}
+              onChange={(event) => setCaption(event.target.value)}
             />
           </div>
           <div className="editor-field">
             <label>Hashtags</label>
-            <textarea defaultValue="#UñasCuba #NailArt #Manicura #BellaStudio #ReservaTuCita" />
+            <textarea value={hashtags} onChange={(event) => setHashtags(event.target.value)} />
           </div>
         </div>
         <div className="modal-actions">
           <button
             className="secondary-button"
-            onClick={() => {
-              setCopied(true);
-              window.setTimeout(() => setCopied(false), 1400);
-            }}
+            onClick={copyContent}
           >
             {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
             {copied ? "Contenido copiado" : "Copiar contenido"}
@@ -906,32 +937,20 @@ function IdeaModal({
   );
 }
 
-function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
-  const [goal, setGoal] = useState("Atraer");
-  const [ideas, setIdeas] = useState(initialIdeas);
+function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (idea: ContentIdea) => void; onUpdate: (data: RomaCreceData) => void }) {
+  const [goal, setGoal] = useState<ContentIdea["goal"]>("Atraer");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [saved, setSaved] = useState<number[]>([2]);
-  const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
+  const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
+  const ideas = data.ideas ?? [];
+
+  const updateIdeas = (nextIdeas: ContentIdea[]) => onUpdate({ ...data, ideas: nextIdeas });
 
   const generateIdea = () => {
     setIsGenerating(true);
     window.setTimeout(() => {
-      setIdeas((current) => [
-        {
-          id: Date.now(),
-          format: "NUEVA IDEA · REEL",
-          title: "Lo que nadie te cuenta antes de elegir uñas acrílicas",
-          hook: "Antes de pedir uñas acrílicas, mira esto...",
-          reason: `Creada para ${goal.toLowerCase()} nuevas clientas`,
-          score: 96,
-          color: "#e83387",
-          icon: Video,
-          new: true,
-        },
-        ...current,
-      ]);
+      updateIdeas([generateContentIdea(data.business, goal), ...ideas]);
       setIsGenerating(false);
-    }, 900);
+    }, 650);
   };
 
   return (
@@ -939,18 +958,18 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
       <ViewIntro
         eyebrow="ESTUDIO DE CONTENIDO"
         title="Ideas que conectan y convierten"
-        description="Contenido personalizado para Bella Studio, listo para adaptar y publicar."
+        description={`Contenido personalizado para ${data.business.name}, listo para adaptar y publicar.`}
       >
         <button className="primary-button" onClick={generateIdea} disabled={isGenerating}>
           {isGenerating ? <LoaderCircle size={17} className="spin" /> : <WandSparkles size={17} />}
-          {isGenerating ? "Creando una idea..." : "Generar ideas con IA"}
+          {isGenerating ? "Creando una idea..." : "Generar nueva idea"}
         </button>
       </ViewIntro>
 
       <section className="idea-toolbar">
         <div className="goal-filter">
           <span>Mi objetivo:</span>
-          {["Atraer", "Educar", "Vender", "Fidelizar"].map((item) => (
+          {(["Atraer", "Educar", "Vender", "Fidelizar"] as ContentIdea["goal"][]).map((item) => (
             <button
               key={item}
               className={goal === item ? "active" : ""}
@@ -960,7 +979,7 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
             </button>
           ))}
         </div>
-        <button className="filter-button"><SlidersHorizontal size={16} /> Todos los formatos</button>
+        <span className="filter-button"><SlidersHorizontal size={16} /> Todos los formatos</span>
       </section>
 
       <section className="ideas-summary">
@@ -968,7 +987,7 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
           <span className="summary-icon"><Zap size={19} /></span>
           <div>
             <strong>{ideas.length} ideas para {goal.toLowerCase()}</strong>
-            <p>Basadas en tu auditoría, servicios y audiencia</p>
+            <p>Basadas en tu negocio, objetivo y auditoría</p>
           </div>
         </div>
         <span>Actualizado hoy</span>
@@ -976,10 +995,10 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
 
       <section className="ideas-grid">
         {ideas.map((idea) => {
-          const Icon = idea.icon;
-          const isSaved = saved.includes(idea.id);
+          const Icon = ideaIcon(idea.format);
+          const isSaved = idea.saved;
           return (
-            <article className={`idea-card ${idea.new ? "new-idea" : ""}`} key={idea.id}>
+            <article className="idea-card new-idea" key={idea.id}>
               <div className="idea-card-top">
                 <span
                   className="idea-format-icon"
@@ -994,18 +1013,12 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
                 <button
                   className={`save-idea ${isSaved ? "saved" : ""}`}
                   aria-label={isSaved ? "Quitar de guardados" : "Guardar idea"}
-                  onClick={() =>
-                    setSaved((current) =>
-                      isSaved
-                        ? current.filter((id) => id !== idea.id)
-                        : [...current, idea.id],
-                    )
-                  }
+                  onClick={() => updateIdeas(ideas.map((item) => item.id === idea.id ? { ...item, saved: !item.saved } : item))}
                 >
                   <Heart size={18} fill={isSaved ? "currentColor" : "none"} />
                 </button>
               </div>
-              <span className="idea-format" style={{ color: idea.color }}>{idea.format}</span>
+              <span className="idea-format" style={{ color: idea.color }}>{idea.goal} · {idea.format}</span>
               <h2>{idea.title}</h2>
               <div className="hook-box">
                 <span>GANCHO</span>
@@ -1036,8 +1049,8 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
             <p>RomaCrece puede crear una semana completa combinando tus mejores formatos.</p>
           </div>
         </div>
-        <button onClick={() => onNavigate("planificador")}>
-          Crear mi semana <ArrowRight size={15} />
+        <button onClick={generateIdea} disabled={isGenerating}>
+          Generar otra idea <ArrowRight size={15} />
         </button>
       </section>
 
@@ -1046,8 +1059,8 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
           idea={selectedIdea}
           onClose={() => setSelectedIdea(null)}
           onPlan={() => {
+            onPlan(selectedIdea);
             setSelectedIdea(null);
-            onNavigate("planificador");
           }}
         />
       )}
@@ -1055,17 +1068,7 @@ function IdeasView({ onNavigate }: { onNavigate: (view: View) => void }) {
   );
 }
 
-type PlannedItem = {
-  id: number;
-  day: number;
-  time: string;
-  format: string;
-  title: string;
-  status: "Idea" | "Borrador" | "Listo" | "Publicado";
-  color: string;
-};
-
-const initialPlannedItems: PlannedItem[] = [
+const initialPlannedItems: PlannedContent[] = [
   { id: 1, day: 0, time: "7:30 p. m.", format: "Reel", title: "3 errores que dañan tus uñas", status: "Listo", color: "#e83387" },
   { id: 2, day: 1, time: "12:00 p. m.", format: "Historia", title: "Encuesta: elige tu diseño", status: "Publicado", color: "#7c5ce5" },
   { id: 3, day: 2, time: "6:00 p. m.", format: "Carrusel", title: "5 diseños elegantes", status: "Borrador", color: "#ef8a2e" },
@@ -1073,36 +1076,72 @@ const initialPlannedItems: PlannedItem[] = [
   { id: 5, day: 5, time: "10:30 a. m.", format: "Historia", title: "Espacios disponibles", status: "Listo", color: "#3a7bd5" },
 ];
 
-const calendarDays = [
-  { name: "Lun", date: "20" },
-  { name: "Mar", date: "21" },
-  { name: "Mié", date: "22" },
-  { name: "Jue", date: "23", today: true },
-  { name: "Vie", date: "24" },
-  { name: "Sáb", date: "25" },
-  { name: "Dom", date: "26" },
-];
+const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-function PlannerView() {
+function getCalendarWeek(offset: number) {
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7) + offset * 7);
+  const days = dayNames.map((name, index) => {
+    const value = new Date(monday);
+    value.setDate(monday.getDate() + index);
+    return { name, date: String(value.getDate()), today: value.toDateString() === today.toDateString() };
+  });
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const format = new Intl.DateTimeFormat("es", { day: "numeric", month: "short" });
+  return { days, label: `${format.format(monday)} – ${format.format(sunday)}` };
+}
+
+function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (items: PlannedContent[]) => void }) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [plannedItems, setPlannedItems] = useState(initialPlannedItems);
   const [showAdd, setShowAdd] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+  const [newFormat, setNewFormat] = useState<ContentIdea["format"]>("Reel");
+  const [newTime, setNewTime] = useState("19:00");
+  const [newDay, setNewDay] = useState(3);
+  const [newStatus, setNewStatus] = useState<PlannedContent["status"]>("Idea");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const plannedItems = items;
+  const calendarWeek = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
+  const visibleItems = plannedItems.filter((item) => (item.week ?? 0) === weekOffset);
+
+  const openNewContent = (day = 3) => {
+    setEditingId(null);
+    setNewTitle("");
+    setNewFormat("Reel");
+    setNewTime("19:00");
+    setNewDay(day);
+    setNewStatus("Idea");
+    setShowAdd(true);
+  };
+
+  const openEditContent = (item: PlannedContent) => {
+    setEditingId(item.id);
+    setNewTitle(item.title);
+    setNewFormat(item.format);
+    setNewTime(item.time);
+    setNewDay(item.day);
+    setNewStatus(item.status);
+    setShowAdd(true);
+  };
 
   const addContent = () => {
     if (!newTitle.trim()) return;
-    setPlannedItems((current) => [
-      ...current,
-      {
-        id: Date.now(),
-        day: 3,
-        time: "7:00 p. m.",
-        format: "Reel",
-        title: newTitle.trim(),
-        status: "Idea",
-        color: "#e83387",
-      },
-    ]);
+    const nextItem: PlannedContent = {
+      id: editingId ?? Date.now(),
+      week: weekOffset,
+      day: newDay,
+      time: newTime,
+      format: newFormat,
+      title: newTitle.trim(),
+      status: newStatus,
+      color: newFormat === "Reel" ? "#e83387" : newFormat === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
+    };
+    onUpdate(editingId === null
+      ? [...plannedItems, nextItem]
+      : plannedItems.map((item) => item.id === editingId ? nextItem : item));
     setNewTitle("");
     setShowAdd(false);
   };
@@ -1114,7 +1153,7 @@ function PlannerView() {
         title="Planifica con intención"
         description="Organiza tu semana y mantén una presencia constante sin improvisar."
       >
-        <button className="primary-button" onClick={() => setShowAdd(true)}>
+        <button className="primary-button" onClick={() => openNewContent()}>
           <Plus size={17} /> Nuevo contenido
         </button>
       </ViewIntro>
@@ -1126,11 +1165,7 @@ function PlannerView() {
           </button>
           <div>
             <strong>
-              {weekOffset === 0
-                ? "20 – 26 de julio"
-                : weekOffset < 0
-                  ? "13 – 19 de julio"
-                  : "27 de julio – 2 de agosto"}
+              {calendarWeek.label}
             </strong>
             <span>{weekOffset === 0 ? "Esta semana" : weekOffset < 0 ? "Semana anterior" : "Próxima semana"}</span>
           </div>
@@ -1139,14 +1174,14 @@ function PlannerView() {
           </button>
         </div>
         <div className="planner-stats">
-          <span><span className="dot published" /> 1 publicado</span>
-          <span><span className="dot ready" /> 2 listos</span>
-          <span><span className="dot draft" /> 2 pendientes</span>
+          <span><span className="dot published" /> {visibleItems.filter((item) => item.status === "Publicado").length} publicados</span>
+          <span><span className="dot ready" /> {visibleItems.filter((item) => item.status === "Listo").length} listos</span>
+          <span><span className="dot draft" /> {visibleItems.filter((item) => item.status === "Idea" || item.status === "Borrador").length} pendientes</span>
         </div>
       </section>
 
       <section className="calendar-board">
-        {calendarDays.map((day, dayIndex) => (
+        {calendarWeek.days.map((day, dayIndex) => (
           <div className={`calendar-column ${day.today ? "today" : ""}`} key={day.name}>
             <div className="calendar-head">
               <span>{day.name}</span>
@@ -1154,7 +1189,7 @@ function PlannerView() {
               {day.today && <em>HOY</em>}
             </div>
             <div className="calendar-body">
-              {plannedItems
+              {visibleItems
                 .filter((item) => item.day === dayIndex)
                 .map((item) => (
                   <article
@@ -1164,7 +1199,7 @@ function PlannerView() {
                   >
                     <div className="calendar-item-top">
                       <span style={{ color: item.color }}>{item.format}</span>
-                      <button aria-label={`Opciones de ${item.title}`}><MoreHorizontal size={15} /></button>
+                      <button aria-label={`Editar ${item.title}`} onClick={() => openEditContent(item)}><MoreHorizontal size={15} /></button>
                     </div>
                     <h3>{item.title}</h3>
                     <span className="calendar-time"><Clock3 size={13} /> {item.time}</span>
@@ -1174,8 +1209,8 @@ function PlannerView() {
                     </span>
                   </article>
                 ))}
-              {dayIndex === 3 && plannedItems.filter((item) => item.day === dayIndex).length === 0 && (
-                <button className="add-slot" onClick={() => setShowAdd(true)}>
+              {visibleItems.filter((item) => item.day === dayIndex).length === 0 && (
+                <button className="add-slot" onClick={() => openNewContent(dayIndex)}>
                   <Plus size={16} /> Añadir
                 </button>
               )}
@@ -1223,13 +1258,13 @@ function PlannerView() {
             className="small-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Añadir contenido"
+            aria-label={editingId === null ? "Añadir contenido" : "Editar contenido"}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-head">
               <div>
-                <span><CalendarCheck2 size={14} /> NUEVO CONTENIDO</span>
-                <h2>Añadir al jueves</h2>
+                <span><CalendarCheck2 size={14} /> {editingId === null ? "NUEVO CONTENIDO" : "EDITAR CONTENIDO"}</span>
+                <h2>{editingId === null ? "Añadir al calendario" : "Actualiza tu publicación"}</h2>
               </div>
               <button aria-label="Cerrar formulario" onClick={() => setShowAdd(false)}><X size={20} /></button>
             </div>
@@ -1243,21 +1278,44 @@ function PlannerView() {
             </label>
             <div className="form-row">
               <label className="form-field">
+                <span>Día</span>
+                <select value={newDay} onChange={(event) => setNewDay(Number(event.target.value))}>
+                  {dayNames.map((day, index) => <option value={index} key={day}>{day}</option>)}
+                </select>
+              </label>
+              <label className="form-field">
                 <span>Formato</span>
-                <select defaultValue="Reel">
+                <select value={newFormat} onChange={(event) => setNewFormat(event.target.value as ContentIdea["format"])}>
                   <option>Reel</option>
                   <option>Carrusel</option>
                   <option>Historia</option>
                 </select>
               </label>
+            </div>
+            <div className="form-row">
               <label className="form-field">
                 <span>Hora</span>
-                <input type="time" defaultValue="19:00" />
+                <input type="time" value={newTime} onChange={(event) => setNewTime(event.target.value)} />
+              </label>
+              <label className="form-field">
+                <span>Estado</span>
+                <select value={newStatus} onChange={(event) => setNewStatus(event.target.value as PlannedContent["status"])}>
+                  <option>Idea</option><option>Borrador</option><option>Listo</option><option>Publicado</option>
+                </select>
               </label>
             </div>
-            <button className="primary-button modal-save" onClick={addContent}>
-              <Plus size={17} /> Añadir al calendario
-            </button>
+            <div className="planner-modal-actions">
+              {editingId !== null && (
+                <button className="delete-button" onClick={() => {
+                  onUpdate(plannedItems.filter((item) => item.id !== editingId));
+                  setShowAdd(false);
+                }}>Eliminar</button>
+              )}
+              <button className="primary-button" onClick={addContent}>
+                {editingId === null ? <Plus size={17} /> : <Check size={17} />}
+                {editingId === null ? "Añadir al calendario" : "Guardar cambios"}
+              </button>
+            </div>
           </section>
         </div>
       )}
@@ -1405,34 +1463,104 @@ export default function Home() {
   const [activeView, setActiveView] = useState<View>("inicio");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [data, setData] = useState<RomaCreceData | null>(null);
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(!isSupabaseConfigured);
   const [editingAudit, setEditingAudit] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [syncState, setSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const loadedUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    let savedData: RomaCreceData | null = null;
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as RomaCreceData;
-        if (parsed.business?.name && parsed.audit?.categories) savedData = parsed;
-      }
-    } catch {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      setData(savedData);
-      setIsReady(true);
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data: sessionData }) => {
+      setUser(sessionData.session?.user ?? null);
+      if (!sessionData.session) setIsReady(true);
     });
-
-    return () => window.cancelAnimationFrame(frame);
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session) {
+        loadedUserId.current = null;
+        setData(null);
+        setIsReady(true);
+      }
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user || loadedUserId.current === user.id) return;
+    let cancelled = false;
+    const load = async () => {
+      setIsReady(false);
+      let localData: RomaCreceData | null = null;
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) localData = JSON.parse(saved) as RomaCreceData;
+        const cloudData = await loadCloudData(user);
+        if (cancelled) return;
+        const nextData = cloudData ?? localData;
+        loadedUserId.current = user.id;
+        setData(nextData);
+        if (nextData) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+        setSyncState(cloudData ? "saved" : "idle");
+      } catch (error) {
+        console.error("No se pudieron cargar los datos de Supabase", error);
+        if (!cancelled) {
+          loadedUserId.current = user.id;
+          setData(localData);
+          setSyncState("error");
+        }
+      } finally {
+        if (!cancelled) setIsReady(true);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !data || loadedUserId.current !== user.id) return;
+    setSyncState("saving");
+    const timer = window.setTimeout(() => {
+      saveCloudData(user, data)
+        .then(() => setSyncState("saved"))
+        .catch((error) => {
+          console.error("No se pudieron guardar los datos en Supabase", error);
+          setSyncState("error");
+        });
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [data, user]);
 
   const completeOnboarding = (nextData: RomaCreceData) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
     setData(nextData);
     setEditingAudit(false);
     setActiveView("auditoria");
+  };
+
+  const updateData = (nextData: RomaCreceData) => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    setData(nextData);
+  };
+
+  const signOut = async () => {
+    await supabase?.auth.signOut();
+    window.localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const planIdea = (idea: ContentIdea) => {
+    if (!data) return;
+    const plannedItem: PlannedContent = {
+      id: Date.now(),
+      day: 3,
+      time: "19:00",
+      format: idea.format,
+      title: idea.title,
+      status: "Idea",
+      color: idea.color,
+    };
+    updateData({ ...data, plannedItems: [...(data.plannedItems ?? initialPlannedItems), plannedItem] });
+    setActiveView("planificador");
   };
 
   if (!isReady) {
@@ -1444,6 +1572,7 @@ export default function Home() {
     );
   }
 
+  if (isSupabaseConfigured && !user) return <AuthScreen />;
   if (!data) return <Onboarding onComplete={completeOnboarding} />;
   if (editingAudit) return <Onboarding initialData={data} onComplete={completeOnboarding} />;
 
@@ -1453,16 +1582,22 @@ export default function Home() {
         business={data.business}
         activeView={activeView}
         onNavigate={setActiveView}
+        onSignOut={signOut}
         mobileOpen={mobileOpen}
         closeMobile={() => setMobileOpen(false)}
       />
       <div className="main-area">
         <Header business={data.business} openMenu={() => setMobileOpen(true)} />
+        <div className={`sync-indicator ${syncState}`} role="status">
+          {syncState === "saving" && "Guardando…"}
+          {syncState === "saved" && "Guardado en la nube"}
+          {syncState === "error" && "Sin conexión · guardado local"}
+        </div>
         <div className="view-stage" key={activeView}>
           {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} />}
           {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} />}
-          {activeView === "ideas" && <IdeasView onNavigate={setActiveView} />}
-          {activeView === "planificador" && <PlannerView />}
+          {activeView === "ideas" && <IdeasView data={data} onPlan={planIdea} onUpdate={updateData} />}
+          {activeView === "planificador" && <PlannerView items={data.plannedItems ?? initialPlannedItems} onUpdate={(items) => updateData({ ...data, plannedItems: items })} />}
           {activeView === "resultados" && <ResultsView />}
         </div>
       </div>

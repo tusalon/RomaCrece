@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateAudit, initialAuditAnswers } from "../app/audit-model.ts";
+import { calculateAudit, generateContentIdea, initialAuditAnswers } from "../app/audit-model.ts";
 
 test("calcula seis categorías y una puntuación dentro del rango", () => {
   const result = calculateAudit(initialAuditAnswers);
@@ -44,3 +44,17 @@ test("una cuenta optimizada obtiene una puntuación alta", () => {
   assert.equal(result.score, 100);
 });
 
+test("genera contenido personalizado para el negocio y objetivo", () => {
+  const idea = generateContentIdea({
+    name: "Luna Studio",
+    category: "Estudio de uñas",
+    city: "La Habana",
+    objective: "Conseguir más reservas",
+    instagram: "lunastudio",
+  }, "Vender", 100);
+
+  assert.equal(idea.goal, "Vender");
+  assert.match(idea.title, /Luna Studio/);
+  assert.match(idea.caption, /La Habana/);
+  assert.match(idea.hashtags, /#LunaStudio/);
+});

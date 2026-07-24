@@ -309,12 +309,203 @@ button {
 
 .profile {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 10px;
   margin-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding: 18px 8px 2px;
   color: #98a2b3;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile:hover {
+  color: white;
+}
+
+.profile > svg {
+  margin-left: auto;
+}
+
+.auth-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(480px, 1.1fr);
+  background: var(--warm);
+}
+
+.auth-brand-panel {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: radial-gradient(circle at 18% 20%, rgba(232, 51, 135, 0.3), transparent 22rem), radial-gradient(circle at 82% 80%, rgba(124, 92, 229, 0.2), transparent 20rem), var(--ink);
+  color: white;
+  padding: 44px clamp(34px, 5vw, 76px);
+}
+
+.auth-brand-panel > div {
+  margin: auto 0;
+}
+
+.auth-brand-panel > div > span,
+.auth-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff83bd;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.auth-brand-panel h1 {
+  max-width: 590px;
+  margin: 20px 0 17px;
+  font-size: clamp(36px, 4vw, 58px);
+  letter-spacing: -0.055em;
+  line-height: 1.04;
+}
+
+.auth-brand-panel p {
+  max-width: 520px;
+  color: #b8c0cc;
+  font-size: 13px;
+  line-height: 1.75;
+}
+
+.auth-brand-panel > small {
+  color: #667085;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.auth-form-panel {
+  display: grid;
+  place-items: center;
+  padding: 48px clamp(28px, 7vw, 100px);
+}
+
+.auth-card {
+  display: flex;
+  width: min(440px, 100%);
+  flex-direction: column;
+  animation: section-rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-card h2 {
+  margin: 10px 0 7px;
+  font-size: clamp(30px, 3vw, 40px);
+  letter-spacing: -0.045em;
+}
+
+.auth-card > p {
+  margin: 0 0 30px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: #475467;
+  font-size: 10px;
+  font-weight: 720;
+}
+
+.auth-card input {
+  min-height: 50px;
+  border: 1px solid #ded8d4;
+  border-radius: 12px;
+  outline: 0;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0 15px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+.auth-card input:focus {
+  border-color: #eda8c8;
+  box-shadow: 0 0 0 4px rgba(232, 51, 135, 0.08);
+}
+
+.auth-message {
+  margin-bottom: 15px;
+  border-radius: 10px;
+  background: rgba(232, 51, 135, 0.08);
+  color: #b42367;
+  padding: 11px 13px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 5px;
+}
+
+.auth-submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.auth-switch {
+  border: 0;
+  background: transparent;
+  color: var(--pink);
+  margin-top: 18px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sync-indicator {
+  position: fixed;
+  z-index: 20;
+  right: 22px;
+  bottom: 18px;
+  border: 1px solid rgba(16, 24, 40, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.1);
+  color: var(--muted);
+  padding: 7px 11px;
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.sync-indicator.idle:empty {
+  display: none;
+}
+
+.sync-indicator.error {
+  color: #b54708;
+}
+
+@media (max-width: 860px) {
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand-panel {
+    min-height: 340px;
+    padding: 28px 24px;
+  }
+
+  .auth-brand-panel > div {
+    margin: 55px 0;
+  }
+
+  .auth-form-panel {
+    padding: 44px 20px 60px;
+  }
 }
 
 .profile-avatar,
@@ -2354,6 +2545,24 @@ button {
   margin-top: 22px;
 }
 
+.planner-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.delete-button {
+  margin-right: auto;
+  border: 1px solid #f1c1c1;
+  border-radius: 11px;
+  background: #fff5f5;
+  color: #b42318;
+  padding: 0 15px;
+  font-size: 10px;
+  font-weight: 750;
+}
+
 .results-highlight {
   display: flex;
   min-height: 230px;
@@ -3275,6 +3484,16 @@ button {
 
   .onboarding-actions {
     flex-direction: column-reverse;
+  }
+
+  .planner-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .planner-modal-actions .primary-button,
+  .delete-button {
+    width: 100%;
+    min-height: 42px;
   }
 
   .app-shell {
