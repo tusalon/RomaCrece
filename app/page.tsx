@@ -423,12 +423,16 @@ function Brand() {
   return (
     <div className="brand">
       <div className="brand-mark" aria-hidden="true">
-        <TrendingUp size={22} strokeWidth={2.7} />
-        <span />
+        {/* Vite resuelve esta imagen con una base distinta para web y Android. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${import.meta.env.BASE_URL}icons/icon-192x192.png`}
+          alt=""
+        />
       </div>
       <div>
         <p className="brand-name">RomaCrece</p>
-        <p className="brand-parent">by RomaHub</p>
+        <p className="brand-parent">by RservasRoma</p>
       </div>
     </div>
   );
