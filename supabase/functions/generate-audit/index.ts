@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "npm:@google/genai@2.13.0";
 import { createClient } from "npm:@supabase/supabase-js@2.110.8";
+import { evaluateSubscription } from "../_shared/subscription-access.ts";
 
 const allowedOrigins = new Set([
   "https://tusalon.github.io",
@@ -103,6 +104,26 @@ Deno.serve(async (request: Request) => {
   const token = authorization.slice("Bearer ".length);
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return json(request, { error: "La sesión no es válida." }, 401);
+
+  const { data: membership, error: membershipError } = await admin
+    .from("romacrece_memberships")
+    .select("negocio_id")
+    .eq("auth_user_id", userData.user.id)
+    .maybeSingle();
+  if (membershipError || !membership) return json(request, { error: "Tu cuenta no está vinculada a RservasRoma." }, 403);
+
+  const { data: subscription, error: subscriptionError } = await admin
+    .from("suscripciones")
+    .select("estado,fecha_renovacion")
+    .eq("negocio_id", membership.negocio_id)
+    .order("fecha_renovacion", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (subscriptionError) return json(request, { error: "No pudimos comprobar tu mensualidad." }, 503);
+  if (!evaluateSubscription(subscription).allowed) {
+    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar Gemini." }, 403);
+  }
 
   let payload: Record<string, unknown>;
   try {

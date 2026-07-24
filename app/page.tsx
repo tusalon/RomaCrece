@@ -66,6 +66,12 @@ import {
   type WeeklyMetrics,
 } from "./audit-model";
 import { generateAiAnalysis } from "./gemini";
+import {
+  RservasLoginError,
+  loadRomaCreceAccess,
+  signInWithRservas,
+  type RomaCreceAccess,
+} from "./rservas-auth";
 import { loadCloudData, saveCloudData } from "./supabase-data";
 import { isSupabaseConfigured, supabase } from "./supabase";
 
@@ -127,31 +133,21 @@ const emptyBusiness: BusinessProfile = {
 };
 
 function AuthScreen() {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!supabase) return;
     setBusy(true);
     setMessage("");
-    const result = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: new URL(import.meta.env.BASE_URL, window.location.origin).toString() },
-        });
-    setBusy(false);
-    if (result.error) {
-      setMessage(result.error.message);
-      return;
-    }
-    if (mode === "register" && !result.data.session) {
-      setMessage("Revisa tu correo y confirma la cuenta para continuar.");
+    try {
+      await signInWithRservas(username, password);
+    } catch (error) {
+      setMessage(error instanceof RservasLoginError ? error.message : "No pudimos comprobar tu acceso.");
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -160,34 +156,81 @@ function AuthScreen() {
       <section className="auth-brand-panel">
         <Brand />
         <div>
-          <span><Sparkles size={15} /> TU CRECIMIENTO, GUARDADO</span>
-          <h1>Tu estrategia de contenido disponible donde la necesites.</h1>
-          <p>Accede para conservar auditorías, ideas y publicaciones en una cuenta protegida.</p>
+          <span><Sparkles size={15} /> INCLUIDO CON RSERVASROMA</span>
+          <h1>Tu crecimiento, conectado con el negocio que ya administras.</h1>
+          <p>Analiza tu Instagram, crea contenido y organiza tu semana con el mismo acceso de tu salón.</p>
         </div>
-        <small>RomaCrece · Parte del ecosistema RomaHub</small>
+        <small>RomaCrece · Un beneficio para clientas activas</small>
       </section>
       <section className="auth-form-panel">
         <form className="auth-card" onSubmit={submit}>
-          <span className="auth-kicker">{mode === "login" ? "BIENVENIDA DE NUEVO" : "CREA TU CUENTA"}</span>
-          <h2>{mode === "login" ? "Entra a RomaCrece" : "Empieza a crecer"}</h2>
-          <p>{mode === "login" ? "Continúa donde dejaste tu estrategia." : "Guarda y sincroniza el progreso de tu negocio."}</p>
+          <span className="auth-kicker">ACCESO PARA CLIENTAS</span>
+          <h2>Entra a RomaCrece</h2>
+          <p>Usa el mismo usuario y contraseña con los que entras al panel de RservasRoma.</p>
           <label>
-            <span>Correo electrónico</span>
-            <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="tu@negocio.com" />
+            <span>Usuario de tu salón</span>
+            <input type="text" required autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Ejemplo: sandrasnails" />
           </label>
           <label>
             <span>Contraseña</span>
-            <input type="password" required minLength={6} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Mínimo 6 caracteres" />
+            <input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Tu contraseña de RservasRoma" />
           </label>
           {message && <div className="auth-message" role="status">{message}</div>}
           <button className="primary-button auth-submit" disabled={busy} type="submit">
-            {busy ? <LoaderCircle className="spin" size={17} /> : mode === "login" ? "Entrar" : "Crear cuenta"}
+            {busy ? <LoaderCircle className="spin" size={17} /> : "Entrar"}
             {!busy && <ArrowRight size={17} />}
           </button>
-          <button className="auth-switch" type="button" onClick={() => { setMode(mode === "login" ? "register" : "login"); setMessage(""); }}>
-            {mode === "login" ? "¿Aún no tienes cuenta? Crear una" : "¿Ya tienes cuenta? Iniciar sesión"}
-          </button>
+          <a className="auth-switch" href="https://wa.me/5354066204?text=Hola%2C%20necesito%20ayuda%20para%20entrar%20a%20RomaCrece" target="_blank" rel="noreferrer">
+            ¿No recuerdas tus datos? Escríbenos por WhatsApp
+          </a>
         </form>
+      </section>
+    </main>
+  );
+}
+
+function AccessBlocked({
+  access,
+  onRetry,
+  onSignOut,
+}: {
+  access: RomaCreceAccess;
+  onRetry: () => void;
+  onSignOut: () => void;
+}) {
+  const expired = access.reason === "subscription_expired";
+  const unavailable = access.reason === "access_unavailable";
+  const renewalDate = access.renewalDate
+    ? new Date(`${access.renewalDate}T12:00:00`).toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const businessName = access.businessName || "tu salón";
+  const paymentMessage = encodeURIComponent(`Hola, soy de ${businessName}. Quiero activar mi acceso a RomaCrece.`);
+
+  return (
+    <main className="access-blocked-shell">
+      <section className="access-blocked-card">
+        <Brand />
+        <div className={`access-blocked-icon ${unavailable ? "warning" : ""}`}>
+          {unavailable ? <AlertCircle size={31} /> : <Clock3 size={31} />}
+        </div>
+        <span className="auth-kicker">ACCESO PROTEGIDO</span>
+        <h1>{unavailable ? "No pudimos comprobar tu acceso" : expired ? "Tu mensualidad está vencida" : "Tu mensualidad no está activa"}</h1>
+        <p>
+          {unavailable
+            ? "Comprueba tu conexión e inténtalo otra vez."
+            : `RomaCrece está incluido para las clientas activas de RservasRoma${renewalDate ? `; tu fecha registrada es ${renewalDate}` : ""}.`}
+        </p>
+        {!unavailable && (
+          <a className="primary-button access-payment-button" href={`https://wa.me/5354066204?text=${paymentMessage}`} target="_blank" rel="noreferrer">
+            <MessageCircleMore size={18} /> Coordinar mi pago
+          </a>
+        )}
+        <button className="secondary-button access-retry-button" type="button" onClick={onRetry}>
+          <RefreshCw size={17} /> Ya pagué, comprobar otra vez
+        </button>
+        <button className="access-signout" type="button" onClick={onSignOut}>
+          <LogOut size={15} /> Salir y usar otro negocio
+        </button>
       </section>
     </main>
   );
@@ -1814,6 +1857,8 @@ export default function Home() {
   const [isReady, setIsReady] = useState(!isSupabaseConfigured);
   const [editingAudit, setEditingAudit] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [accessStatus, setAccessStatus] = useState<RomaCreceAccess | null>(null);
+  const [accessCheck, setAccessCheck] = useState(0);
   const [syncState, setSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const loadedUserId = useRef<string | null>(null);
 
@@ -1821,26 +1866,40 @@ export default function Home() {
     if (!supabase) return;
     supabase.auth.getSession().then(({ data: sessionData }) => {
       setUser(sessionData.session?.user ?? null);
-      if (!sessionData.session) setIsReady(true);
+      setIsReady(!sessionData.session);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setAccessStatus(null);
       if (!session) {
         loadedUserId.current = null;
         setData(null);
         setIsReady(true);
+      } else {
+        setIsReady(false);
+        setAccessCheck((current) => current + 1);
       }
     });
     return () => listener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!user || loadedUserId.current === user.id) return;
+    if (!user) return;
     let cancelled = false;
     const load = async () => {
       setIsReady(false);
       let localData: RomaCreceData | null = null;
       try {
+        const access = await loadRomaCreceAccess();
+        if (cancelled) return;
+        setAccessStatus(access);
+        if (!access.allowed) {
+          loadedUserId.current = null;
+          setData(null);
+          return;
+        }
+
+        if (loadedUserId.current === user.id) return;
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) localData = JSON.parse(saved) as RomaCreceData;
         const cloudData = await loadCloudData(user);
@@ -1851,10 +1910,19 @@ export default function Home() {
         if (nextData) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
         setSyncState(cloudData ? "saved" : "idle");
       } catch (error) {
-        console.error("No se pudieron cargar los datos de Supabase", error);
+        console.error("No se pudo comprobar el acceso de RomaCrece", error);
         if (!cancelled) {
-          loadedUserId.current = user.id;
-          setData(localData);
+          loadedUserId.current = null;
+          setData(null);
+          setAccessStatus({
+            allowed: false,
+            reason: "access_unavailable",
+            businessId: null,
+            businessSlug: null,
+            businessName: null,
+            subscriptionState: null,
+            renewalDate: null,
+          });
           setSyncState("error");
         }
       } finally {
@@ -1863,10 +1931,19 @@ export default function Home() {
     };
     load();
     return () => { cancelled = true; };
+  }, [accessCheck, user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const recheckWhenVisible = () => {
+      if (document.visibilityState === "visible") setAccessCheck((current) => current + 1);
+    };
+    document.addEventListener("visibilitychange", recheckWhenVisible);
+    return () => document.removeEventListener("visibilitychange", recheckWhenVisible);
   }, [user]);
 
   useEffect(() => {
-    if (!user || !data || loadedUserId.current !== user.id) return;
+    if (!user || !accessStatus?.allowed || !data || loadedUserId.current !== user.id) return;
     setSyncState("saving");
     const timer = window.setTimeout(() => {
       saveCloudData(user, data)
@@ -1877,7 +1954,7 @@ export default function Home() {
         });
     }, 650);
     return () => window.clearTimeout(timer);
-  }, [data, user]);
+  }, [accessStatus?.allowed, data, user]);
 
   const completeOnboarding = (nextData: RomaCreceData) => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
@@ -1894,6 +1971,13 @@ export default function Home() {
   const signOut = async () => {
     await supabase?.auth.signOut();
     window.localStorage.removeItem(STORAGE_KEY);
+    setAccessStatus(null);
+  };
+
+  const retryAccess = () => {
+    setAccessStatus(null);
+    setIsReady(false);
+    setAccessCheck((current) => current + 1);
   };
 
   const planIdea = (idea: ContentIdea) => {
@@ -1921,6 +2005,9 @@ export default function Home() {
   }
 
   if (isSupabaseConfigured && !user) return <AuthScreen />;
+  if (isSupabaseConfigured && accessStatus && !accessStatus.allowed) {
+    return <AccessBlocked access={accessStatus} onRetry={retryAccess} onSignOut={signOut} />;
+  }
   if (!data) return <Onboarding onComplete={completeOnboarding} />;
   if (editingAudit) return <Onboarding initialData={data} onComplete={completeOnboarding} />;
 

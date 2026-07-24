@@ -16,7 +16,7 @@
     "android:sync": "npm run build:android && npx cap sync android && npm run android:icons",
     "android:icons": "powershell -ExecutionPolicy Bypass -File scripts/apply-android-icons.ps1",
     "start": "vinext start",
-    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/audit-model.test.ts",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs tests/audit-model.test.ts tests/subscription-access.test.ts",
     "validate:artifact": "node scripts/validate-artifact.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern docs/assets --ignore-pattern android-web --ignore-pattern android",
     "db:generate": "drizzle-kit generate"
