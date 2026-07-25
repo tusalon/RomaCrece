@@ -3,6 +3,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   root: "pages",
+  envDir: "..",
   base: "/RomaCrece/",
   publicDir: "../public",
   plugins: [react()],
