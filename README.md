@@ -18,6 +18,7 @@ La versión actual utiliza los datos registrados por cada negocio. Incluye:
 - Historial de métricas, conversión y oportunidades de mejora.
 - Memoria basada en ideas aceptadas o rechazadas, contenido publicado y resultados semanales.
 - Calendario con fechas reales y relación entre cada idea, publicación y mejor resultado.
+- Asesora semanal gratuita que convierte los datos guardados en tres acciones concretas.
 - Diseño adaptable a computadoras y móviles.
 
 Aplicación publicada:
@@ -143,6 +144,14 @@ señales para reforzar los enfoques útiles y evitar propuestas rechazadas.
 
 La migración `202607250005_content_learning.sql` añade esta memoria sin guardar
 contraseñas ni exponer la clave de Gemini en la aplicación.
+
+### Asesora de esta semana
+
+La pantalla de inicio calcula tres pasos prácticos: contenido pendiente,
+principal oportunidad de la auditoría y registro de resultados. Este cálculo se
+hace en el dispositivo con los datos ya guardados, por lo que no consume Gemini
+ni necesita un servicio adicional. El progreso cambia automáticamente cuando
+se publica contenido, mejora la auditoría o se registra la semana.
 
 Para que la confirmación por correo regrese a la aplicación, configura en
 **Supabase → Authentication → URL Configuration**:

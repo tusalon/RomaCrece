@@ -122,6 +122,26 @@ export type PlannedContent = {
   color: string;
 };
 
+export type AdvisorDestination = "auditoria" | "ideas" | "planificador" | "resultados";
+
+export type WeeklyAdvisorAction = {
+  id: "content" | "growth" | "results";
+  kind: "content" | "growth" | "results";
+  title: string;
+  detail: string;
+  cta: string;
+  destination: AdvisorDestination;
+  done: boolean;
+};
+
+export type WeeklyAdvisor = {
+  headline: string;
+  summary: string;
+  completed: number;
+  total: number;
+  actions: WeeklyAdvisorAction[];
+};
+
 export const STORAGE_KEY = "romacrece:mvp:v1";
 
 export function weekStartFromOffset(offset = 0, referenceDate = new Date()): string {
@@ -136,6 +156,110 @@ export function weekStartFromOffset(offset = 0, referenceDate = new Date()): str
 
 export function isPlannedForWeek(item: PlannedContent, weekStart: string, legacyOffset = 0): boolean {
   return item.weekStart ? item.weekStart === weekStart : (item.week ?? 0) === legacyOffset;
+}
+
+const advisorImprovement: Record<AuditCategory["id"], { destination: AdvisorDestination; cta: string }> = {
+  profile: { destination: "auditoria", cta: "Ver cómo mejorarlo" },
+  visual: { destination: "ideas", cta: "Crear contenido coherente" },
+  frequency: { destination: "planificador", cta: "Organizar la semana" },
+  content: { destination: "ideas", cta: "Crear una idea mejor" },
+  engagement: { destination: "ideas", cta: "Crear contenido que conecte" },
+  conversion: { destination: "auditoria", cta: "Mejorar las reservas" },
+};
+
+const advisorDayNames = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"];
+
+export function buildWeeklyAdvisor(data: RomaCreceData, referenceDate = new Date()): WeeklyAdvisor {
+  const weekStart = weekStartFromOffset(0, referenceDate);
+  const plan = (data.plannedItems ?? [])
+    .filter((item) => isPlannedForWeek(item, weekStart, 0))
+    .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
+  const pendingContent = plan.find((item) => item.status !== "Publicado");
+  const weakestCategory = [...data.audit.categories].sort((a, b) => a.score - b.score)[0];
+  const recommendation = weakestCategory
+    ? data.audit.recommendations.find((item) => item.categoryId === weakestCategory.id)
+    : undefined;
+  const improvement = advisorImprovement[weakestCategory?.id ?? "content"];
+  const currentResults = (data.weeklyMetrics ?? []).find((item) => item.weekStart === weekStart);
+
+  const contentAction: WeeklyAdvisorAction = pendingContent
+    ? {
+      id: "content",
+      kind: "content",
+      title: `Publica “${pendingContent.title}”`,
+      detail: `${advisorDayNames[pendingContent.day] ?? "Esta semana"} a las ${pendingContent.time} · ${pendingContent.format}`,
+      cta: "Abrir calendario",
+      destination: "planificador",
+      done: false,
+    }
+    : plan.length > 0
+      ? {
+        id: "content",
+        kind: "content",
+        title: "Contenido de la semana completado",
+        detail: `${plan.length} ${plan.length === 1 ? "publicación marcada" : "publicaciones marcadas"} como publicadas`,
+        cta: "Ver calendario",
+        destination: "planificador",
+        done: true,
+      }
+      : {
+        id: "content",
+        kind: "content",
+        title: "Prepara tu próxima publicación",
+        detail: "Elige una idea y colócala en el calendario para dejar de improvisar",
+        cta: "Crear una idea",
+        destination: "ideas",
+        done: false,
+      };
+
+  const growthDone = (weakestCategory?.score ?? data.audit.score) >= 75;
+  const growthAction: WeeklyAdvisorAction = {
+    id: "growth",
+    kind: "growth",
+    title: growthDone
+      ? `${weakestCategory?.label ?? "Tu cuenta"} tiene una base sólida`
+      : recommendation?.title ?? "Mejora tu contenido principal",
+    detail: growthDone
+      ? `Esta área está en ${weakestCategory?.score ?? data.audit.score}/100; mantenla mientras trabajas la siguiente oportunidad`
+      : recommendation?.text ?? "Combina resultados, consejos y llamadas claras a reservar.",
+    cta: improvement.cta,
+    destination: improvement.destination,
+    done: growthDone,
+  };
+
+  const resultsAction: WeeklyAdvisorAction = currentResults
+    ? {
+      id: "results",
+      kind: "results",
+      title: "Resultados de la semana registrados",
+      detail: `${currentResults.reach} de alcance · ${currentResults.messages} mensajes · ${currentResults.bookings} reservas`,
+      cta: "Ver resultados",
+      destination: "resultados",
+      done: true,
+    }
+    : {
+      id: "results",
+      kind: "results",
+      title: "Registra cómo te fue esta semana",
+      detail: "Anota alcance, mensajes y reservas para saber qué debes repetir",
+      cta: "Registrar resultados",
+      destination: "resultados",
+      done: false,
+    };
+
+  const actions = [contentAction, growthAction, resultsAction];
+  const completed = actions.filter((action) => action.done).length;
+  const pending = actions.find((action) => !action.done);
+  const headline = completed === actions.length
+    ? "Tu semana está completa"
+    : completed === actions.length - 1
+      ? "Te falta un paso para cerrar la semana"
+      : `Tienes ${actions.length - completed} acciones claras para avanzar`;
+  const summary = pending
+    ? `Empieza por: ${pending.title.toLowerCase()}.`
+    : "Ya puedes revisar tus resultados y preparar la próxima semana.";
+
+  return { headline, summary, completed, total: actions.length, actions };
 }
 
 export const initialAuditAnswers: AuditAnswers = {

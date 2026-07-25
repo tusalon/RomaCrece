@@ -1112,6 +1112,147 @@ button {
   padding: 24px;
 }
 
+.advisor-card {
+  display: block;
+}
+
+.advisor-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advisor-count {
+  border-radius: 999px;
+  background: var(--pink-soft);
+  color: var(--pink);
+  padding: 6px 9px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.advisor-card h3 {
+  margin: 17px 0 6px;
+}
+
+.advisor-progress {
+  height: 5px;
+  margin-top: 15px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #f0ece9;
+}
+
+.advisor-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pink), #f072ad);
+  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.advisor-action-list {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.advisor-action {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #ece6e3;
+  border-radius: 11px;
+  background: #fbfaf9;
+  color: #344054;
+  padding: 9px;
+  text-align: left;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.advisor-action:hover {
+  transform: translateX(2px);
+  border-color: rgba(232, 51, 135, 0.3);
+  background: white;
+}
+
+.advisor-action.done {
+  background: #f3faf8;
+}
+
+.advisor-action > svg {
+  color: #98a2b3;
+}
+
+.advisor-action.done > svg {
+  color: var(--green);
+}
+
+.advisor-action-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+
+.advisor-action.done .advisor-action-icon {
+  background: #e3f7f1;
+  color: var(--green);
+}
+
+.advisor-action-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.advisor-action-copy strong {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.advisor-action-copy small {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #667085;
+  font-size: 8px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.advisor-action-copy em {
+  margin-top: 4px;
+  color: #a62d67;
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.advisor-free-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 11px;
+  color: #667085;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.advisor-free-note svg {
+  flex: 0 0 auto;
+  color: var(--green);
+}
+
 .focus-card-head {
   display: flex;
   align-items: center;
@@ -1225,10 +1366,13 @@ button {
 
 .metric-card {
   display: grid;
+  width: 100%;
   grid-template-columns: auto 1fr;
   align-items: center;
   border-radius: 16px;
+  color: inherit;
   padding: 17px;
+  text-align: left;
 }
 
 .metric-icon {
@@ -4146,6 +4290,10 @@ button {
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 20px;
+  }
+
+  .focus-card.advisor-card {
+    display: block;
   }
 
   .focus-card-head,

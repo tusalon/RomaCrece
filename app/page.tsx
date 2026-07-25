@@ -53,6 +53,7 @@ import {
 } from "lucide-react";
 import {
   STORAGE_KEY,
+  buildWeeklyAdvisor,
   businessInitials,
   calculateAudit,
   calculateChange,
@@ -600,7 +601,8 @@ function Header({ data, openMenu, onNavigate }: { data: RomaCreceData; openMenu:
   const [showNotifications, setShowNotifications] = useState(false);
   const initials = businessInitials(data.business.name);
   const currentWeek = getCalendarWeek(0).weekStart;
-  const pendingContent = (data.plannedItems ?? []).filter((item) => (item.week ?? 0) === 0 && item.status !== "Publicado").length;
+  const pendingContent = (data.plannedItems ?? []).filter((item) =>
+    isPlannedForWeek(item, currentWeek, 0) && item.status !== "Publicado").length;
   const weekRegistered = (data.weeklyMetrics ?? []).some((item) => item.weekStart === currentWeek);
 
   const runSearch = () => {
@@ -692,6 +694,12 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
   const pendingPlan = currentPlan.filter((item) => item.status !== "Publicado");
   const nextContent = pendingPlan[0];
   const publishedDays = new Set(currentPlan.filter((item) => item.status === "Publicado").map((item) => item.day));
+  const advisor = buildWeeklyAdvisor(data);
+  const advisorIcons = {
+    content: CalendarDays,
+    growth: Target,
+    results: ChartNoAxesCombined,
+  };
   const interactions = latest ? latest.likes + latest.comments + latest.saves : 0;
   const metricCards = [
     { label: "Alcance", value: latest?.reach, change: metricDifference(latest?.reach ?? 0, previous?.reach, true), icon: Eye, color: "#7c5ce5", tint: "#f0ebff" },
@@ -755,26 +763,54 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
           <div className="audit-shape shape-two" />
         </article>
 
-        <article className="focus-card">
-          <div className="focus-card-head">
-            <span className="focus-icon">
-              <Target size={19} />
-            </span>
-            <span>PRIORIDAD DE HOY</span>
+        <article className="focus-card advisor-card">
+          <div className="advisor-card-head">
+            <div className="focus-card-head">
+              <span className="focus-icon"><Sparkles size={19} /></span>
+              <span>ASESORA DE ESTA SEMANA</span>
+            </div>
+            <span className="advisor-count">{advisor.completed}/{advisor.total}</span>
           </div>
-          <h3>{nextContent?.title ?? "Planifica tu próxima publicación"}</h3>
-          <p>{nextContent ? "Este es el próximo contenido pendiente de tu calendario." : "Añade una idea al calendario para convertirla en una tarea clara."}</p>
-          <div className="focus-meta">
-            <span><Clock3 size={15} /> {nextContent?.time ?? "Elige una hora"}</span>
-            <span><Instagram size={15} /> {nextContent?.format ?? "Sin formato"}</span>
-          </div>
-          <button
-            className="task-button"
-            onClick={nextContent ? markPublished : () => onNavigate("planificador")}
+          <h3>{advisor.headline}</h3>
+          <p>{advisor.summary}</p>
+          <div
+            className="advisor-progress"
+            role="progressbar"
+            aria-label="Progreso de acciones semanales"
+            aria-valuemin={0}
+            aria-valuemax={advisor.total}
+            aria-valuenow={advisor.completed}
           >
-            {nextContent ? <span className="empty-check" /> : <Plus size={17} />}
-            {nextContent ? "Marcar como publicado" : "Abrir planificador"}
-          </button>
+            <span style={{ width: `${(advisor.completed / advisor.total) * 100}%` }} />
+          </div>
+          <div className="advisor-action-list">
+            {advisor.actions.map((action) => {
+              const Icon = advisorIcons[action.kind];
+              return (
+                <button
+                  type="button"
+                  className={`advisor-action ${action.done ? "done" : ""}`}
+                  key={action.id}
+                  onClick={() => onNavigate(action.destination)}
+                  aria-label={`${action.title}. ${action.cta}`}
+                >
+                  <span className="advisor-action-icon"><Icon size={16} /></span>
+                  <span className="advisor-action-copy">
+                    <strong>{action.title}</strong>
+                    <small>{action.detail}</small>
+                    <em>{action.cta}</em>
+                  </span>
+                  {action.done ? <CheckCircle2 size={17} /> : <ChevronRight size={17} />}
+                </button>
+              );
+            })}
+          </div>
+          {nextContent && (
+            <button className="task-button" onClick={markPublished}>
+              <span className="empty-check" /> Marcar próxima publicación como publicada
+            </button>
+          )}
+          <small className="advisor-free-note"><Zap size={13} /> Funciona con tus datos guardados y no consume créditos de IA.</small>
         </article>
       </section>
 
@@ -792,7 +828,13 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
           {metricCards.map((metric) => {
             const Icon = metric.icon;
             return (
-              <article className="metric-card" key={metric.label}>
+              <button
+                type="button"
+                className="metric-card"
+                key={metric.label}
+                onClick={() => onNavigate("resultados")}
+                aria-label={`Ver resultados de ${metric.label}`}
+              >
                 <div
                   className="metric-icon"
                   style={{ backgroundColor: metric.tint, color: metric.color }}
@@ -810,7 +852,7 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
                   </span>
                   <small>{latest ? "vs. medición anterior" : "Registra tu semana"}</small>
                 </div>
-              </article>
+              </button>
             );
           })}
         </div>
@@ -1132,7 +1174,8 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
                 <h3>{item.idea}</h3>
                 <p>{item.goal}</p>
                 {(() => {
-                  const isPlanned = (data.plannedItems ?? []).some((planned) => planned.title === item.idea && (planned.week ?? 0) === 0);
+                  const isPlanned = (data.plannedItems ?? []).some((planned) =>
+                    planned.title === item.idea && isPlannedForWeek(planned, getCalendarWeek(0).weekStart, 0));
                   return (
                     <button disabled={isPlanned} onClick={() => addAiPlanItem(item, index)}>
                       {isPlanned ? <><Check size={14} /> Ya está en el calendario</> : <>Añadir al calendario <ArrowRight size={14} /></>}

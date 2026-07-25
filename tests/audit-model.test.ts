@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   calculateAudit,
   calculateChange,
+  buildWeeklyAdvisor,
   generateContentIdea,
   initialAuditAnswers,
   isPlannedForWeek,
   normalizeAuditAnswers,
+  type RomaCreceData,
   weekStartFromOffset,
 } from "../app/audit-model.ts";
 
@@ -163,4 +165,80 @@ test("prioriza la fecha real y mantiene compatibilidad con planes anteriores", (
   assert.equal(isPlannedForWeek(datedItem, "2026-07-20", 0), false);
   assert.equal(isPlannedForWeek(datedItem, "2026-07-13", -1), true);
   assert.equal(isPlannedForWeek(legacyItem, "2026-07-27", 1), true);
+});
+
+function createAdvisorData(): RomaCreceData {
+  const answers = {
+    ...initialAuditAnswers,
+    followers: 1200,
+    following: 500,
+    totalPosts: 60,
+    averageLikes: 35,
+    averageComments: 4,
+    averageSaves: 3,
+    monthlyMessages: 12,
+    monthlyBookings: 3,
+  };
+  return {
+    business: {
+      name: "Luna Studio",
+      category: "Manicura",
+      city: "La Habana",
+      objective: "Conseguir más clientas",
+      instagram: "lunastudio",
+    },
+    answers,
+    audit: calculateAudit(answers),
+    ideas: [],
+    plannedItems: [],
+    weeklyMetrics: [],
+  };
+}
+
+test("la asesora propone tres acciones sin consumir IA", () => {
+  const advisor = buildWeeklyAdvisor(createAdvisorData(), new Date(2026, 6, 25, 12));
+
+  assert.equal(advisor.total, 3);
+  assert.equal(advisor.completed, 0);
+  assert.equal(advisor.actions[0].destination, "ideas");
+  assert.equal(advisor.actions[2].destination, "resultados");
+  assert.match(advisor.headline, /3 acciones/);
+});
+
+test("la asesora reconoce publicaciones y resultados completados", () => {
+  const data = createAdvisorData();
+  data.plannedItems = [{
+    id: 10,
+    weekStart: "2026-07-20",
+    day: 2,
+    time: "19:00",
+    format: "Reel",
+    title: "Antes y después",
+    status: "Publicado",
+    color: "#e83387",
+  }];
+  data.weeklyMetrics = [{
+    id: "week-1",
+    weekStart: "2026-07-20",
+    followers: 1210,
+    reach: 800,
+    profileVisits: 40,
+    likes: 55,
+    comments: 6,
+    saves: 8,
+    messages: 10,
+    bookings: 3,
+    posts: 1,
+    reels: 1,
+    stories: 4,
+    bestPost: "Antes y después",
+    bestPlannedContentId: 10,
+    updatedAt: "2026-07-25T12:00:00.000Z",
+  }];
+
+  const advisor = buildWeeklyAdvisor(data, new Date(2026, 6, 25, 12));
+
+  assert.equal(advisor.completed, 2);
+  assert.equal(advisor.actions.find((item) => item.id === "content")?.done, true);
+  assert.equal(advisor.actions.find((item) => item.id === "results")?.done, true);
 });
