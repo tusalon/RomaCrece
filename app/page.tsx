@@ -93,11 +93,31 @@ const emptyBusiness: BusinessProfile = {
   instagram: "",
 };
 
+const isLocalAuditPreview = import.meta.env.DEV && typeof window !== "undefined"
+  && new URLSearchParams(window.location.search).get("preview") === "audit";
+
 type ClearableNumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> & {
   value: number | null;
   onValueChange: (value: number) => void;
   onEmpty?: () => void;
 };
+
+const AUDIT_DRAFT_KEY = "romacrece:audit-draft:v2";
+
+type AuditDraft = {
+  step: 1 | 2 | 3 | 4;
+  business: BusinessProfile;
+  answers: Partial<AuditAnswers>;
+};
+
+function loadAuditDraft(): AuditDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return JSON.parse(window.localStorage.getItem(AUDIT_DRAFT_KEY) ?? "null") as AuditDraft | null;
+  } catch {
+    return null;
+  }
+}
 
 function ClearableNumberInput({ value, onValueChange, onEmpty, min = 0, step = 1, ...inputProps }: ClearableNumberInputProps) {
   const [text, setText] = useState(value === null ? "" : String(value));
@@ -229,9 +249,15 @@ function AccessBlocked({
 }
 
 function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; onComplete: (data: RomaCreceData) => void }) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialData ? 2 : 1);
-  const [business, setBusiness] = useState(initialData?.business ?? emptyBusiness);
-  const [answers, setAnswers] = useState(normalizeAuditAnswers(initialData?.answers));
+  const [savedDraft] = useState<AuditDraft | null>(() => initialData ? null : loadAuditDraft());
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(initialData ? 2 : savedDraft?.step ?? 1);
+  const [business, setBusiness] = useState(initialData?.business ?? savedDraft?.business ?? emptyBusiness);
+  const [answers, setAnswers] = useState(normalizeAuditAnswers(initialData?.answers ?? savedDraft?.answers));
+
+  useEffect(() => {
+    if (initialData) return;
+    window.localStorage.setItem(AUDIT_DRAFT_KEY, JSON.stringify({ step, business, answers } satisfies AuditDraft));
+  }, [answers, business, initialData, step]);
 
   const updateBusiness = (field: keyof BusinessProfile, value: string) => {
     setBusiness((current) => ({ ...current, [field]: value }));
@@ -260,6 +286,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
       city: business.city.trim(),
       instagram: business.instagram.trim().replace(/^@/, ""),
     };
+    window.localStorage.removeItem(AUDIT_DRAFT_KEY);
     onComplete({
       business: normalizedBusiness,
       answers,
@@ -295,17 +322,18 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
             <span className={step >= 3 ? "active" : ""}>3</span><i className={step >= 4 ? "active" : ""} />
             <span className={step >= 4 ? "active" : ""}>4</span>
           </div>
+          {!initialData && <div className="draft-note"><CheckCircle2 size={14} /> Tus respuestas se guardan en este dispositivo mientras completas la auditoría.</div>}
           <div className="onboarding-heading">
             <span>PASO {step} DE 4</span>
-            <h2>{step === 1 ? "Conozcamos tu negocio" : step === 2 ? "Cuéntanos sobre tu trabajo" : step === 3 ? "Miremos tus números reales" : "¿Cómo publicas hoy?"}</h2>
+            <h2>{step === 1 ? "Conozcamos tu negocio" : step === 2 ? "Revisemos tu perfil" : step === 3 ? "Miremos tus números reales" : "¿Cómo creas contenido hoy?"}</h2>
             <p>
               {step === 1
                 ? "Estos datos nos ayudan a adaptar el análisis a tu realidad."
                 : step === 2
-                  ? "Son preguntas rápidas para entender el contexto de tu cuenta."
+                  ? "Queremos saber si una nueva clienta entiende qué haces y cómo reservar."
                   : step === 3
-                    ? "Usa los números de tu perfil y el promedio de una publicación normal."
-                    : "No hay respuestas buenas o malas: queremos conocer tu rutina real."}
+                    ? "Usa los números de tu perfil y valores aproximados si no tienes todos los datos."
+                    : "No hay respuestas buenas o malas: buscamos un plan que puedas mantener."}
             </p>
           </div>
 
@@ -380,8 +408,26 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
                 <select value={answers.accountAgeMonths} onChange={(event) => updateAnswer("accountAgeMonths", Number(event.target.value))}>
                   <option value="3">Menos de 6 meses</option>
                   <option value="9">Entre 6 meses y 1 año</option>
+                  <option value="12">Alrededor de 1 año</option>
                   <option value="24">Entre 1 y 3 años</option>
                   <option value="48">Más de 3 años</option>
+                </select>
+              </label>
+              <label className="onboarding-field wide">
+                <span>Cuando alguien lee tu biografía, ¿entiende qué haces y dónde trabajas?</span>
+                <select value={answers.bioStatus} onChange={(event) => updateAnswer("bioStatus", event.target.value as AuditAnswers["bioStatus"])}>
+                  <option>No está clara</option>
+                  <option>Dice qué hago, pero no dónde</option>
+                  <option>Explica servicio y ubicación</option>
+                </select>
+                <small className="field-help">Piensa en una persona que visita tu cuenta por primera vez.</small>
+              </label>
+              <label className="onboarding-field wide">
+                <span>¿Cómo puede una clienta reservar desde Instagram?</span>
+                <select value={answers.bookingMethod} onChange={(event) => updateAnswer("bookingMethod", event.target.value as AuditAnswers["bookingMethod"])}>
+                  <option>No tengo un camino claro</option>
+                  <option>Me escriben por mensaje</option>
+                  <option>Tengo enlace directo para reservar</option>
                 </select>
               </label>
               <div className="onboarding-actions wide">
@@ -393,12 +439,15 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
 
           {step === 3 && (
             <form className="onboarding-form audit-form" onSubmit={(event) => continueTo(event, 4)}>
+              <div className="audit-form-tip wide"><Instagram size={18} /><div><strong>¿Dónde encuentro estos datos?</strong><small>En Instagram abre tu perfil y entra en Panel profesional o Estadísticas. Un aproximado también sirve.</small></div></div>
               <label className="onboarding-field"><span>¿Cuántos seguidores tienes?</span><ClearableNumberInput min={0} required value={answers.followers} onValueChange={(value) => updateAnswer("followers", value)} /></label>
               <label className="onboarding-field"><span>¿A cuántas cuentas sigues?</span><ClearableNumberInput min={0} required value={answers.following} onValueChange={(value) => updateAnswer("following", value)} /></label>
               <label className="onboarding-field wide"><span>¿Cuántas publicaciones tienes en total?</span><ClearableNumberInput min={0} required value={answers.totalPosts} onValueChange={(value) => updateAnswer("totalPosts", value)} /></label>
               <label className="onboarding-field"><span>Likes de una publicación normal</span><ClearableNumberInput min={0} required value={answers.averageLikes} onValueChange={(value) => updateAnswer("averageLikes", value)} /><small className="field-help">No uses tu mejor publicación, piensa en una normal</small></label>
               <label className="onboarding-field"><span>Comentarios de una publicación normal</span><ClearableNumberInput min={0} required value={answers.averageComments} onValueChange={(value) => updateAnswer("averageComments", value)} /><small className="field-help">Un aproximado está bien</small></label>
               <label className="onboarding-field wide"><span>¿Cuántas personas guardan tus publicaciones?</span><ClearableNumberInput min={0} value={answers.averageSaves} onValueChange={(value) => updateAnswer("averageSaves", value)} onEmpty={() => updateAnswer("averageSaves", null)} placeholder="Déjalo vacío si no lo sabes" /><small className="field-help">Este dato es opcional</small></label>
+              <label className="onboarding-field"><span>¿Cuántos mensajes recibes desde Instagram al mes?</span><ClearableNumberInput min={0} required value={answers.monthlyMessages} onValueChange={(value) => updateAnswer("monthlyMessages", value)} /><small className="field-help">Cuenta consultas de precios, citas y servicios</small></label>
+              <label className="onboarding-field"><span>¿Cuántas reservas consigues desde Instagram al mes?</span><ClearableNumberInput min={0} required value={answers.monthlyBookings} onValueChange={(value) => updateAnswer("monthlyBookings", value)} /><small className="field-help">Escribe 0 si todavía no consigues reservas</small></label>
               <div className="onboarding-actions wide">
                 <button className="secondary-button" type="button" onClick={() => setStep(2)}><ChevronLeft size={17} /> Volver</button>
                 <button className="primary-button" type="submit">Continuar <ArrowRight size={17} /></button>
@@ -412,6 +461,9 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
               <label className="onboarding-field"><span>¿Con qué frecuencia usas Reels?</span><select value={answers.reelsFrequency} onChange={(event) => updateAnswer("reelsFrequency", event.target.value as AuditAnswers["reelsFrequency"])}><option>No uso</option><option>A veces</option><option>1-2 por semana</option><option>3-5 por semana</option><option>Todos los días</option></select></label>
               <label className="onboarding-field"><span>¿Con qué frecuencia usas Stories?</span><select value={answers.storiesFrequency} onChange={(event) => updateAnswer("storiesFrequency", event.target.value as AuditAnswers["storiesFrequency"])}><option>No uso</option><option>A veces</option><option>3-5 días por semana</option><option>Casi todos los días</option><option>Todos los días</option></select></label>
               <label className="onboarding-field wide"><span>¿Qué tipo de contenido publicas más?</span><select value={answers.mainContent} onChange={(event) => updateAnswer("mainContent", event.target.value as AuditAnswers["mainContent"])}><option>Fotos de trabajos</option><option>Consejos</option><option>Contenido personal</option><option>Promociones</option><option>Una mezcla de varios</option></select></label>
+              <label className="onboarding-field wide"><span>¿Qué tan uniforme se ve tu cuenta?</span><select value={answers.visualConsistency} onChange={(event) => updateAnswer("visualConsistency", event.target.value as AuditAnswers["visualConsistency"])}><option>Cada publicación se ve diferente</option><option>Mantengo algunos colores o estilo</option><option>Mi cuenta se ve uniforme</option></select></label>
+              <label className="onboarding-field"><span>¿Cómo describirías la calidad de tus fotos y videos?</span><select value={answers.contentQuality} onChange={(event) => updateAnswer("contentQuality", event.target.value as AuditAnswers["contentQuality"])}><option>Necesita mejorar</option><option>Se ve bien</option><option>Se ve profesional</option></select></label>
+              <label className="onboarding-field"><span>¿Invitas a escribirte o reservar?</span><select value={answers.ctaFrequency} onChange={(event) => updateAnswer("ctaFrequency", event.target.value as AuditAnswers["ctaFrequency"])}><option>Casi nunca</option><option>A veces</option><option>Casi siempre</option></select></label>
               <div className="audit-ready wide"><Sparkles size={18} /><div><strong>Todo listo para analizar tu cuenta</strong><small>Usaremos tus números reales para encontrar fortalezas y oportunidades.</small></div></div>
               <div className="onboarding-actions wide">
                 <button className="secondary-button" type="button" onClick={() => setStep(3)}><ChevronLeft size={17} /> Volver</button>
@@ -526,7 +578,7 @@ function Sidebar({
           </button>
           <button className="nav-item quiet" onClick={onEditBusiness}>
             <Settings size={19} />
-            <span>Configuración</span>
+            <span>Actualizar auditoría</span>
           </button>
           <button className="profile" type="button" onClick={onSignOut} aria-label="Cerrar sesión">
             <div className="profile-avatar">{initials}</div>
@@ -551,11 +603,18 @@ function Header({ data, openMenu, onNavigate }: { data: RomaCreceData; openMenu:
   const weekRegistered = (data.weeklyMetrics ?? []).some((item) => item.weekStart === currentWeek);
 
   const runSearch = () => {
-    const normalized = query.trim().toLocaleLowerCase("es");
+    const normalized = query.trim().toLocaleLowerCase("es").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (!normalized) return;
-    const match = navItems.find((item) => item.label.toLocaleLowerCase("es").includes(normalized) || item.id.includes(normalized));
+    const searchTargets: Array<{ view: View; keywords: string[] }> = [
+      { view: "inicio", keywords: ["inicio", "panel", "resumen"] },
+      { view: "auditoria", keywords: ["auditoria", "puntuacion", "analisis", "perfil"] },
+      { view: "ideas", keywords: ["ideas", "contenido", "gemini", "caption", "guion"] },
+      { view: "planificador", keywords: ["planificador", "calendario", "semana", "publicar"] },
+      { view: "resultados", keywords: ["resultados", "metricas", "alcance", "reservas", "crecimiento"] },
+    ];
+    const match = searchTargets.find((target) => target.keywords.some((keyword) => keyword.includes(normalized) || normalized.includes(keyword)));
     if (match) {
-      onNavigate(match.id);
+      onNavigate(match.view);
       setQuery("");
     }
   };
@@ -905,6 +964,9 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
     ? analysis.priorities.map((item) => ({ title: item.title, text: item.why, action: item.action }))
     : data.audit.recommendations;
   const scoreLabel = data.audit.score >= 80 ? "MUY BUENA" : data.audit.score >= 60 ? "BUENA" : data.audit.score >= 40 ? "EN PROCESO" : "POR MEJORAR";
+  const analysisNeedsRefresh = !analysis || analysis.sourceAuditAt !== data.audit.createdAt;
+  const auditDateLabel = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", year: "numeric" })
+    .format(new Date(data.audit.createdAt));
 
   return (
     <div className="page-content inner-page">
@@ -939,7 +1001,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
           <div className="large-score">
             <ScoreRing score={data.audit.score} />
             <strong>{scoreLabel}</strong>
-            <span>Última auditoría: hoy</span>
+            <span>Última auditoría: {auditDateLabel}</span>
           </div>
         </article>
 
@@ -955,7 +1017,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
             {data.audit.categories.map((item) => (
               <div className="category-row" key={item.label}>
                 <div>
-                  <span>{item.label}</span>
+                  <span>{item.label}<small>{item.score >= 75 ? "Punto fuerte" : item.score >= 50 ? "En progreso" : "Prioridad"}</small></span>
                   <strong>{item.score}</strong>
                 </div>
                 <div className="progress-track">
@@ -972,18 +1034,18 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
         </article>
       </section>
 
-      {!analysis && (
+      {analysisNeedsRefresh && (
         <section className="ai-audit-callout">
           <div className="ai-audit-icon"><WandSparkles size={24} /></div>
           <div>
             <span>ANÁLISIS PERSONALIZADO</span>
-            <h2>Deja que Gemini convierta tus datos en un plan semanal</h2>
-            <p>Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad. Puedes generar uno gratis cada semana.</p>
+            <h2>{analysis ? "Tus datos cambiaron: actualicemos el análisis" : "Deja que Gemini convierta tus datos en un plan semanal"}</h2>
+            <p>{analysis ? "Gemini volverá a revisar la auditoría para que las recomendaciones coincidan con tus respuestas nuevas." : "Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad."}</p>
             {aiState === "error" && <small role="alert">{aiError}</small>}
           </div>
           <button className="primary-button" onClick={requestAnalysis} disabled={aiState === "loading"}>
             {aiState === "loading" ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}
-            {aiState === "loading" ? "Preparando tu análisis…" : "Crear mi análisis con IA"}
+            {aiState === "loading" ? "Preparando tu análisis…" : analysis ? "Actualizar análisis" : "Crear mi análisis con IA"}
           </button>
         </section>
       )}
@@ -1018,9 +1080,15 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
                 <h3>{finding.title}</h3>
                 <p>{finding.text}</p>
                 <button
-                  onClick={() =>
-                    onNavigate(index === 2 ? "planificador" : "ideas")
-                  }
+                  onClick={() => {
+                    if ("categoryId" in finding && finding.categoryId === "profile") {
+                      onEdit();
+                      return;
+                    }
+                    onNavigate("categoryId" in finding && finding.categoryId === "frequency"
+                      ? "planificador"
+                      : index === 2 && analysis ? "planificador" : "ideas");
+                  }}
                 >
                   {finding.action} <ArrowRight size={14} />
                 </button>
@@ -1060,7 +1128,14 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
                 <span>{item.day} · {item.format}</span>
                 <h3>{item.idea}</h3>
                 <p>{item.goal}</p>
-                <button onClick={() => addAiPlanItem(item, index)}>Añadir al calendario <ArrowRight size={14} /></button>
+                {(() => {
+                  const isPlanned = (data.plannedItems ?? []).some((planned) => planned.title === item.idea && (planned.week ?? 0) === 0);
+                  return (
+                    <button disabled={isPlanned} onClick={() => addAiPlanItem(item, index)}>
+                      {isPlanned ? <><Check size={14} /> Ya está en el calendario</> : <>Añadir al calendario <ArrowRight size={14} /></>}
+                    </button>
+                  );
+                })()}
               </article>
             ))}
           </div>
@@ -1084,7 +1159,7 @@ function IdeaModal({
   onSave: (idea: ContentIdea) => void;
   onPlan: (idea: ContentIdea) => void;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [hook, setHook] = useState(idea.hook);
   const [script, setScript] = useState(idea.script);
   const [caption, setCaption] = useState(idea.caption);
@@ -1097,10 +1172,28 @@ function IdeaModal({
   };
 
   const copyContent = async () => {
-    await navigator.clipboard.writeText(`${hook}\n\n${script}\n\n${caption}\n\n${hashtags}`);
-    onSave(editedIdea);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1400);
+    const content = `${hook}\n\n${script}\n\n${caption}\n\n${hashtags}`;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        const textArea = document.createElement("textarea");
+        textArea.value = content;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const copied = document.execCommand("copy");
+        textArea.remove();
+        if (!copied) throw new Error("copy_failed");
+      }
+      onSave(editedIdea);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState("idle"), 1400);
+    } catch {
+      setCopyState("error");
+    }
   };
 
   return (
@@ -1150,13 +1243,14 @@ function IdeaModal({
             className="secondary-button"
             onClick={copyContent}
           >
-            {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-            {copied ? "Contenido copiado" : "Copiar contenido"}
+            {copyState === "copied" ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+            {copyState === "copied" ? "Contenido copiado" : "Copiar contenido"}
           </button>
           <button className="primary-button" onClick={() => onPlan(editedIdea)}>
             <CalendarDays size={17} /> Añadir al planificador
           </button>
         </div>
+        {copyState === "error" && <p className="copy-error" role="alert">No pudimos copiar automáticamente. Mantén pulsado el texto para copiarlo.</p>}
       </section>
     </div>
   );
@@ -1254,7 +1348,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
                 </span>
                 <div className="idea-score">
                   <Sparkles size={13} />
-                  {idea.score}% potencial
+                  Recomendada para ti
                 </div>
                 <button
                   className={`save-idea ${isSaved ? "saved" : ""}`}
@@ -1275,11 +1369,8 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
                 {idea.reason}
               </div>
               <div className="idea-actions">
-                <button className="secondary-button" onClick={() => setSelectedIdea(idea)}>
-                  Ver contenido
-                </button>
                 <button className="use-button" onClick={() => setSelectedIdea(idea)}>
-                  Usar idea <ArrowRight size={15} />
+                  Abrir y editar idea <ArrowRight size={15} />
                 </button>
               </div>
             </article>
@@ -1642,7 +1733,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   const previous = metrics.find((item) => item.weekStart === previousWeekKey(week.weekStart));
   const closestFollowers = [...metrics]
     .reverse()
-    .find((item) => item.weekStart < week.weekStart)?.followers ?? data.answers.followers;
+    .find((item) => item.weekStart < week.weekStart)?.followers ?? data.answers.followers ?? 0;
   const [draft, setDraft] = useState<WeeklyDraft>(() => emptyWeeklyDraft(closestFollowers));
   const chartEntries = metrics.slice(-8);
   const highestReach = Math.max(1, ...chartEntries.map((item) => item.reach));
@@ -1685,6 +1776,12 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
     setShowForm(false);
   };
 
+  const selectWeek = (weekStart: string) => {
+    const currentMonday = new Date(`${getCalendarWeek(0).weekStart}T12:00:00`);
+    const selectedMonday = new Date(`${weekStart}T12:00:00`);
+    setWeekOffset(Math.round((selectedMonday.getTime() - currentMonday.getTime()) / 604800000));
+  };
+
   const reachChange = current && previous ? calculateChange(current.reach, previous.reach) : null;
   const summary = !current
     ? "Aún no has registrado esta semana. Tardarás unos dos minutos."
@@ -1709,6 +1806,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
     if (!current?.reach || value === 0) return "12%";
     return `${Math.max(24, Math.min(100, (value / current.reach) * 100))}%`;
   };
+  const percentageOf = (value: number, base: number) => base > 0 ? Math.round((value / base) * 100) : 0;
 
   const opportunity = !current
     ? { title: "Registra tu primera semana", text: "Con tus números reales podremos darte una recomendación útil." }
@@ -1806,12 +1904,12 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
                     const isSelected = item.weekStart === week.weekStart;
                     const labelDate = new Date(`${item.weekStart}T12:00:00`);
                     return (
-                      <div className="bar-column" key={item.weekStart}>
+                      <button type="button" className="bar-column" key={item.weekStart} onClick={() => selectWeek(item.weekStart)} aria-label={`Ver semana con ${item.reach} personas alcanzadas`}>
                         <span className={isSelected ? "best" : ""} style={{ height: `${Math.max(8, (item.reach / highestReach) * 100)}%` }}>
                           {isSelected && <em>{numberFormat.format(item.reach)}</em>}
                         </span>
                         <small>{new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }).format(labelDate)}</small>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -1828,9 +1926,9 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
               </div>
               <div className="funnel">
                 <div style={{ width: "100%" }}><span>{numberFormat.format(current.reach)}</span><small>Personas alcanzadas</small></div>
-                <div style={{ width: funnelWidth(current.profileVisits) }}><span>{numberFormat.format(current.profileVisits)}</span><small>Visitas al perfil</small></div>
-                <div style={{ width: funnelWidth(current.messages) }}><span>{numberFormat.format(current.messages)}</span><small>Mensajes recibidos</small></div>
-                <div style={{ width: funnelWidth(current.bookings) }}><span>{numberFormat.format(current.bookings)}</span><small>Reservas logradas</small></div>
+                <div style={{ width: funnelWidth(current.profileVisits) }}><span>{numberFormat.format(current.profileVisits)}</span><small>Visitas · {percentageOf(current.profileVisits, current.reach)}% del alcance</small></div>
+                <div style={{ width: funnelWidth(current.messages) }}><span>{numberFormat.format(current.messages)}</span><small>Mensajes · {percentageOf(current.messages, current.profileVisits)}% de visitas</small></div>
+                <div style={{ width: funnelWidth(current.bookings) }}><span>{numberFormat.format(current.bookings)}</span><small>Reservas · {percentageOf(current.bookings, current.messages)}% de mensajes</small></div>
               </div>
               <p><MessageSquareText size={14} /> Estos datos los registraste tú; no son cifras de demostración.</p>
             </article>
@@ -1873,11 +1971,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
           </div>
           <div className="weekly-history-list">
             {[...metrics].reverse().slice(0, 8).map((item) => (
-              <button key={item.weekStart} className={item.weekStart === week.weekStart ? "active" : ""} onClick={() => {
-                const currentMonday = new Date(`${getCalendarWeek(0).weekStart}T12:00:00`);
-                const itemMonday = new Date(`${item.weekStart}T12:00:00`);
-                setWeekOffset(Math.round((itemMonday.getTime() - currentMonday.getTime()) / 604800000));
-              }}>
+              <button key={item.weekStart} className={item.weekStart === week.weekStart ? "active" : ""} onClick={() => selectWeek(item.weekStart)}>
                 <span>Semana del {new Intl.DateTimeFormat("es", { day: "numeric", month: "short" }).format(new Date(`${item.weekStart}T12:00:00`))}</span>
                 <strong>{numberFormat.format(item.reach)} alcance</strong>
                 <small>{item.messages} mensajes · {item.bookings} reservas</small>
@@ -1953,7 +2047,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<View>("inicio");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [data, setData] = useState<RomaCreceData | null>(null);
-  const [isReady, setIsReady] = useState(!isSupabaseConfigured);
+  const [isReady, setIsReady] = useState(!isSupabaseConfigured || isLocalAuditPreview);
   const [editingAudit, setEditingAudit] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [accessStatus, setAccessStatus] = useState<RomaCreceAccess | null>(null);
@@ -1962,7 +2056,7 @@ export default function Home() {
   const loadedUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || isLocalAuditPreview) return;
     supabase.auth.getSession().then(({ data: sessionData }) => {
       setUser(sessionData.session?.user ?? null);
       setIsReady(!sessionData.session);
@@ -2070,6 +2164,7 @@ export default function Home() {
   const signOut = async () => {
     await supabase?.auth.signOut();
     window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(AUDIT_DRAFT_KEY);
     setAccessStatus(null);
   };
 
@@ -2108,8 +2203,8 @@ export default function Home() {
     );
   }
 
-  if (isSupabaseConfigured && !user) return <AuthScreen />;
-  if (isSupabaseConfigured && accessStatus && !accessStatus.allowed) {
+  if (isSupabaseConfigured && !isLocalAuditPreview && !user) return <AuthScreen />;
+  if (isSupabaseConfigured && !isLocalAuditPreview && accessStatus && !accessStatus.allowed) {
     return <AccessBlocked access={accessStatus} onRetry={retryAccess} onSignOut={signOut} />;
   }
   if (!data) return <Onboarding onComplete={completeOnboarding} />;

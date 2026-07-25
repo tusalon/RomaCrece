@@ -213,13 +213,16 @@ Deno.serve(async (request: Request) => {
   if (businessError) return json(request, { error: "No pudimos preparar los datos del negocio.", code: "business_save_failed" }, 500);
 
   const week = currentWeek();
+  const sourceAuditAt = typeof baseAudit.createdAt === "string" ? baseAudit.createdAt : "";
   const { data: existing } = await admin
     .from("ai_audits")
     .select("analysis")
     .eq("business_id", savedBusiness.id)
     .eq("week_start", week.start)
     .maybeSingle();
-  if (existing?.analysis) return json(request, { analysis: existing.analysis, cached: true });
+  if (existing?.analysis?.sourceAuditAt === sourceAuditAt) {
+    return json(request, { analysis: existing.analysis, cached: true });
+  }
 
   const [ideasMemory, planMemory, metricsMemory] = await Promise.all([
     admin
@@ -248,6 +251,9 @@ Analiza únicamente la información proporcionada. No afirmes que visitaste Inst
 Escribe en español claro, cálido y práctico para una dueña de negocio no técnica.
 Evita las palabras engagement, funnel, benchmark y KPI. Convierte cada observación en una acción posible esta semana.
 Personaliza las ideas según especialidad, país, ciudad, tamaño del equipo y objetivo.
+Da especial importancia a bioStatus, bookingMethod, visualConsistency, contentQuality, ctaFrequency, monthlyMessages y monthlyBookings.
+Si alguna cifra es cero o aproximada, trátala como punto de partida y no como un fracaso.
+Relaciona las recomendaciones con mensajes y reservas, no solamente con seguidores.
 
 NEGOCIO:
 ${JSON.stringify(business)}
@@ -286,15 +292,16 @@ ${JSON.stringify(metricsMemory.data ?? [])}
       ...generated,
       generatedAt: new Date().toISOString(),
       nextAvailableAt: week.next,
+      sourceAuditAt,
     };
-    const { error: insertError } = await admin.from("ai_audits").insert({
+    const { error: insertError } = await admin.from("ai_audits").upsert({
       business_id: savedBusiness.id,
       owner_id: userData.user.id,
       provider: "gemini",
       model: GEMINI_MODEL,
       week_start: week.start,
       analysis,
-    });
+    }, { onConflict: "business_id,week_start" });
     if (insertError) throw insertError;
     return json(request, { analysis, cached: false });
   } catch (error) {

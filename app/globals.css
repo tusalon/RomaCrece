@@ -1731,6 +1731,14 @@ button {
   font-weight: 620;
 }
 
+.category-row span small {
+  display: block;
+  margin-top: 2px;
+  color: #98a2b3;
+  font-size: 8px;
+  font-weight: 600;
+}
+
 .category-row strong {
   font-size: 11px;
 }
@@ -2893,6 +2901,13 @@ button {
   font-weight: 700;
 }
 
+.copy-error {
+  margin: 10px 0 0;
+  color: #b54708;
+  font-size: 9px;
+  text-align: center;
+}
+
 .week-switcher button {
   display: grid;
   width: 38px;
@@ -3088,6 +3103,21 @@ button {
   align-items: center;
   justify-content: flex-end;
   flex-direction: column;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.bar-column:hover > span,
+.bar-column:focus-visible > span {
+  opacity: 0.8;
+}
+
+.bar-column:focus-visible small {
+  color: var(--pink);
 }
 
 .bar-column > span {
@@ -3495,6 +3525,19 @@ button {
   background: var(--pink);
 }
 
+.draft-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -20px 0 24px;
+  color: #667085;
+  font-size: 9px;
+}
+
+.draft-note svg {
+  color: var(--green);
+}
+
 .onboarding-heading > span {
   color: var(--pink);
   font-size: 9px;
@@ -3531,6 +3574,7 @@ button {
 
 .onboarding-field.wide,
 .audit-question.wide,
+.audit-form-tip.wide,
 .onboarding-actions.wide {
   grid-column: 1 / -1;
 }
@@ -3604,6 +3648,33 @@ button {
 
 .audit-form {
   gap: 14px 16px;
+}
+
+.audit-form-tip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ddd7f7;
+  border-radius: 14px;
+  background: #f7f5ff;
+  padding: 13px 15px;
+  color: #7c5ce5;
+}
+
+.audit-form-tip div {
+  display: grid;
+  gap: 3px;
+}
+
+.audit-form-tip strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.audit-form-tip small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
 }
 
 .audit-question {
@@ -3812,6 +3883,12 @@ button {
   cursor: pointer;
 }
 
+.ai-week-grid button:disabled {
+  color: var(--green);
+  cursor: default;
+  opacity: 0.8;
+}
+
 @media (max-width: 760px) {
   .ai-audit-callout {
     grid-template-columns: auto 1fr;
@@ -4004,20 +4081,28 @@ button {
 
 @media (max-width: 640px) {
   .onboarding-brand-panel {
-    min-height: 340px;
-    padding: 25px 20px;
+    min-height: 245px;
+    padding: 22px 20px 24px;
   }
 
   .onboarding-promise {
-    margin: 54px 0;
+    margin: 34px 0 0;
   }
 
   .onboarding-promise h1 {
-    font-size: 35px;
+    max-width: 330px;
+    font-size: 29px;
+    line-height: 1.04;
+  }
+
+  .onboarding-promise > p,
+  .onboarding-benefits,
+  .onboarding-brand-panel > small {
+    display: none;
   }
 
   .onboarding-form-panel {
-    padding: 38px 18px 52px;
+    padding: 28px 18px 52px;
   }
 
   .onboarding-form {
@@ -4026,6 +4111,7 @@ button {
 
   .onboarding-field.wide,
   .audit-question.wide,
+  .audit-form-tip.wide,
   .onboarding-actions.wide {
     grid-column: auto;
   }

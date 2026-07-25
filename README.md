@@ -6,20 +6,21 @@ RomaCrece es el módulo de crecimiento orgánico de RomaHub/RservasRoma. Está
 pensado inicialmente para negocios de belleza que desean auditar su Instagram,
 generar ideas de contenido, organizar publicaciones y medir resultados.
 
-## Prototipo actual
+## MVP actual
 
-La versión actual es un prototipo visual e interactivo con datos de
-demostración. Incluye:
+La versión actual utiliza los datos registrados por cada negocio. Incluye:
 
 - Panel principal de crecimiento.
-- Auditoría de Instagram con puntuación y recomendaciones.
-- Generador y editor de ideas de contenido.
-- Planificador semanal.
-- Métricas, conversión y oportunidades de mejora.
+- Auditoría 2.0 de Instagram con puntuación en seis áreas y recomendaciones.
+- Análisis y generación de contenido con Gemini.
+- Editor de ideas con ganchos, guiones, captions y hashtags.
+- Planificador semanal editable.
+- Historial de métricas, conversión y oportunidades de mejora.
+- Memoria basada en ideas guardadas, contenido publicado y resultados semanales.
 - Diseño adaptable a computadoras y móviles.
 
-Prototipo publicado:
-[romacrece.leetomy437.chatgpt.site](https://romacrece.leetomy437.chatgpt.site)
+Aplicación publicada:
+[tusalon.github.io/RomaCrece](https://tusalon.github.io/RomaCrece/)
 
 ## Tecnología
 
@@ -88,10 +89,11 @@ GitHub Pages.
 
 ## Preparar Supabase
 
-La aplicación usa Supabase Auth con correo y contraseña. Negocios, auditorías,
-ideas y publicaciones planificadas se sincronizan por usuario; el almacenamiento
-local se conserva únicamente como respaldo. La base remota está definida en
-`supabase/migrations/202607230001_initial_schema.sql` con políticas RLS.
+La aplicación usa el mismo usuario y contraseña de RservasRoma. Una Edge
+Function verifica las credenciales y la mensualidad activa, y después crea una
+sesión segura de Supabase. Negocios, auditorías, ideas, publicaciones y métricas
+se sincronizan por usuario; el almacenamiento local se conserva como respaldo.
+La base remota está definida en `supabase/migrations/` con políticas RLS.
 
 1. Crea un proyecto en Supabase.
 2. Ejecuta la migración desde el editor SQL o mediante Supabase CLI.
@@ -111,6 +113,14 @@ como secreto de Edge Functions con el nombre `GEMINI_API_KEY`; nunca se añade a
 La migración `202607240002_ai_audits.sql` guarda el resultado y aplica RLS para
 que cada usuario solo pueda leer sus propios análisis. La puntuación calculada
 localmente permanece disponible si Gemini no responde o se alcanza el límite.
+
+### Auditoría 2.0
+
+La auditoría comienza sin cifras de demostración y guarda temporalmente el
+avance en el dispositivo. Evalúa perfil y biografía, identidad visual,
+constancia, calidad y variedad, interacción, y conversión a mensajes y reservas.
+Si la usuaria actualiza sus respuestas, Gemini puede renovar el análisis de la
+misma semana usando la auditoría más reciente.
 
 ### Seguimiento semanal
 
@@ -137,12 +147,13 @@ Para que la confirmación por correo regrese a la aplicación, configura en
 
 ## Próxima etapa
 
-El siguiente MVP deberá incorporar:
+Las siguientes mejoras previstas son:
 
-1. Recuperación de contraseña y administración de cuenta.
-2. Soporte para varios negocios por usuario.
-3. Generación de contenido mediante una función segura del servidor.
-4. Integración posterior con las API oficiales de las redes sociales.
+1. Relacionar cada publicación con sus resultados específicos.
+2. Añadir valoración explícita para que la memoria conozca qué ideas sirven.
+3. Recordatorios locales y notificaciones de publicación.
+4. Soporte para varios negocios por usuario.
+5. Integración posterior con las API oficiales de las redes sociales.
 
 ## Seguridad
 

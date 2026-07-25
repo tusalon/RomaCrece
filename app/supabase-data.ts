@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import type { RomaCreceData } from "./audit-model";
+import { normalizeAuditAnswers, type RomaCreceData } from "./audit-model";
 import { supabase } from "./supabase";
 
 type BusinessRow = RomaCreceData["business"] & { id: string };
@@ -64,7 +64,7 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       objective: business.objective,
       instagram: business.instagram,
     },
-    answers: auditResponse.data.answers,
+    answers: normalizeAuditAnswers(auditResponse.data.answers),
     audit: {
       score: auditResponse.data.score,
       categories: auditResponse.data.categories,
