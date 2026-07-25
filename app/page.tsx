@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, InputHTMLAttributes } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
   AlertCircle,
@@ -92,6 +92,37 @@ const emptyBusiness: BusinessProfile = {
   objective: "Conseguir más clientes locales",
   instagram: "",
 };
+
+type ClearableNumberInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "onChange"> & {
+  value: number | null;
+  onValueChange: (value: number) => void;
+  onEmpty?: () => void;
+};
+
+function ClearableNumberInput({ value, onValueChange, onEmpty, min = 0, step = 1, ...inputProps }: ClearableNumberInputProps) {
+  const [text, setText] = useState(value === null ? "" : String(value));
+
+  return (
+    <input
+      {...inputProps}
+      type="number"
+      inputMode="numeric"
+      min={min}
+      step={step}
+      value={text}
+      onChange={(event) => {
+        const nextText = event.target.value;
+        setText(nextText);
+        if (nextText === "") {
+          onEmpty?.();
+          return;
+        }
+        const parsed = Number(nextText);
+        if (Number.isFinite(parsed)) onValueChange(Math.max(Number(min), parsed));
+      }}
+    />
+  );
+}
 
 function AuthScreen() {
   const [username, setUsername] = useState("");
@@ -332,6 +363,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
                   const value = event.target.value as AuditAnswers["workMode"];
                   updateAnswer("workMode", value);
                   if (value === "Trabajo sola") updateAnswer("teamSize", 0);
+                  if (value === "Tengo equipo" && answers.teamSize < 1) updateAnswer("teamSize", 1);
                 }}>
                   <option>Trabajo sola</option>
                   <option>Tengo equipo</option>
@@ -340,7 +372,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
               {answers.workMode === "Tengo equipo" && (
                 <label className="onboarding-field">
                   <span>¿Cuántas personas forman el equipo?</span>
-                  <input type="number" min="1" required value={answers.teamSize || 1} onChange={(event) => updateAnswer("teamSize", Number(event.target.value))} />
+                  <ClearableNumberInput min={1} required value={answers.teamSize || 1} onValueChange={(value) => updateAnswer("teamSize", value)} />
                 </label>
               )}
               <label className={`onboarding-field ${answers.workMode === "Trabajo sola" ? "wide" : ""}`}>
@@ -361,12 +393,12 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
 
           {step === 3 && (
             <form className="onboarding-form audit-form" onSubmit={(event) => continueTo(event, 4)}>
-              <label className="onboarding-field"><span>¿Cuántos seguidores tienes?</span><input type="number" min="0" required value={answers.followers} onChange={(event) => updateAnswer("followers", Number(event.target.value))} /></label>
-              <label className="onboarding-field"><span>¿A cuántas cuentas sigues?</span><input type="number" min="0" required value={answers.following} onChange={(event) => updateAnswer("following", Number(event.target.value))} /></label>
-              <label className="onboarding-field wide"><span>¿Cuántas publicaciones tienes en total?</span><input type="number" min="0" required value={answers.totalPosts} onChange={(event) => updateAnswer("totalPosts", Number(event.target.value))} /></label>
-              <label className="onboarding-field"><span>Likes de una publicación normal</span><input type="number" min="0" required value={answers.averageLikes} onChange={(event) => updateAnswer("averageLikes", Number(event.target.value))} /><small className="field-help">No uses tu mejor publicación, piensa en una normal</small></label>
-              <label className="onboarding-field"><span>Comentarios de una publicación normal</span><input type="number" min="0" required value={answers.averageComments} onChange={(event) => updateAnswer("averageComments", Number(event.target.value))} /><small className="field-help">Un aproximado está bien</small></label>
-              <label className="onboarding-field wide"><span>¿Cuántas personas guardan tus publicaciones?</span><input type="number" min="0" value={answers.averageSaves ?? ""} onChange={(event) => updateAnswer("averageSaves", event.target.value === "" ? null : Number(event.target.value))} placeholder="Déjalo vacío si no lo sabes" /><small className="field-help">Este dato es opcional</small></label>
+              <label className="onboarding-field"><span>¿Cuántos seguidores tienes?</span><ClearableNumberInput min={0} required value={answers.followers} onValueChange={(value) => updateAnswer("followers", value)} /></label>
+              <label className="onboarding-field"><span>¿A cuántas cuentas sigues?</span><ClearableNumberInput min={0} required value={answers.following} onValueChange={(value) => updateAnswer("following", value)} /></label>
+              <label className="onboarding-field wide"><span>¿Cuántas publicaciones tienes en total?</span><ClearableNumberInput min={0} required value={answers.totalPosts} onValueChange={(value) => updateAnswer("totalPosts", value)} /></label>
+              <label className="onboarding-field"><span>Likes de una publicación normal</span><ClearableNumberInput min={0} required value={answers.averageLikes} onValueChange={(value) => updateAnswer("averageLikes", value)} /><small className="field-help">No uses tu mejor publicación, piensa en una normal</small></label>
+              <label className="onboarding-field"><span>Comentarios de una publicación normal</span><ClearableNumberInput min={0} required value={answers.averageComments} onValueChange={(value) => updateAnswer("averageComments", value)} /><small className="field-help">Un aproximado está bien</small></label>
+              <label className="onboarding-field wide"><span>¿Cuántas personas guardan tus publicaciones?</span><ClearableNumberInput min={0} value={answers.averageSaves} onValueChange={(value) => updateAnswer("averageSaves", value)} onEmpty={() => updateAnswer("averageSaves", null)} placeholder="Déjalo vacío si no lo sabes" /><small className="field-help">Este dato es opcional</small></label>
               <div className="onboarding-actions wide">
                 <button className="secondary-button" type="button" onClick={() => setStep(2)}><ChevronLeft size={17} /> Volver</button>
                 <button className="primary-button" type="submit">Continuar <ArrowRight size={17} /></button>
@@ -1635,8 +1667,8 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
     setShowForm(true);
   };
 
-  const updateNumber = (field: WeeklyNumberField, value: string) => {
-    setDraft((currentDraft) => ({ ...currentDraft, [field]: Math.max(0, Number(value) || 0) }));
+  const updateNumber = (field: WeeklyNumberField, value: number) => {
+    setDraft((currentDraft) => ({ ...currentDraft, [field]: value }));
   };
 
   const saveWeek = (event: FormEvent<HTMLFormElement>) => {
@@ -1877,31 +1909,31 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
             <fieldset className="weekly-fieldset">
               <legend>Tu cuenta</legend>
               <div className="form-row">
-                <label className="form-field"><span>Seguidores actuales</span><input required min="0" type="number" value={draft.followers} onChange={(event) => updateNumber("followers", event.target.value)} /></label>
-                <label className="form-field"><span>Personas alcanzadas</span><input required min="0" type="number" value={draft.reach} onChange={(event) => updateNumber("reach", event.target.value)} /></label>
-                <label className="form-field"><span>Visitas al perfil</span><input required min="0" type="number" value={draft.profileVisits} onChange={(event) => updateNumber("profileVisits", event.target.value)} /></label>
+                <label className="form-field"><span>Seguidores actuales</span><ClearableNumberInput required min={0} value={draft.followers} onValueChange={(value) => updateNumber("followers", value)} /></label>
+                <label className="form-field"><span>Personas alcanzadas</span><ClearableNumberInput required min={0} value={draft.reach} onValueChange={(value) => updateNumber("reach", value)} /></label>
+                <label className="form-field"><span>Visitas al perfil</span><ClearableNumberInput required min={0} value={draft.profileVisits} onValueChange={(value) => updateNumber("profileVisits", value)} /></label>
               </div>
             </fieldset>
 
             <fieldset className="weekly-fieldset">
               <legend>Respuesta del público</legend>
               <div className="form-row">
-                <label className="form-field"><span>Me gusta</span><input required min="0" type="number" value={draft.likes} onChange={(event) => updateNumber("likes", event.target.value)} /></label>
-                <label className="form-field"><span>Comentarios</span><input required min="0" type="number" value={draft.comments} onChange={(event) => updateNumber("comments", event.target.value)} /></label>
-                <label className="form-field"><span>Guardados</span><input required min="0" type="number" value={draft.saves} onChange={(event) => updateNumber("saves", event.target.value)} /></label>
+                <label className="form-field"><span>Me gusta</span><ClearableNumberInput required min={0} value={draft.likes} onValueChange={(value) => updateNumber("likes", value)} /></label>
+                <label className="form-field"><span>Comentarios</span><ClearableNumberInput required min={0} value={draft.comments} onValueChange={(value) => updateNumber("comments", value)} /></label>
+                <label className="form-field"><span>Guardados</span><ClearableNumberInput required min={0} value={draft.saves} onValueChange={(value) => updateNumber("saves", value)} /></label>
               </div>
             </fieldset>
 
             <fieldset className="weekly-fieldset">
               <legend>Clientes y contenido</legend>
               <div className="form-row">
-                <label className="form-field"><span>Mensajes recibidos</span><input required min="0" type="number" value={draft.messages} onChange={(event) => updateNumber("messages", event.target.value)} /></label>
-                <label className="form-field"><span>Reservas logradas</span><input required min="0" type="number" value={draft.bookings} onChange={(event) => updateNumber("bookings", event.target.value)} /></label>
-                <label className="form-field"><span>Publicaciones</span><input required min="0" type="number" value={draft.posts} onChange={(event) => updateNumber("posts", event.target.value)} /></label>
+                <label className="form-field"><span>Mensajes recibidos</span><ClearableNumberInput required min={0} value={draft.messages} onValueChange={(value) => updateNumber("messages", value)} /></label>
+                <label className="form-field"><span>Reservas logradas</span><ClearableNumberInput required min={0} value={draft.bookings} onValueChange={(value) => updateNumber("bookings", value)} /></label>
+                <label className="form-field"><span>Publicaciones</span><ClearableNumberInput required min={0} value={draft.posts} onValueChange={(value) => updateNumber("posts", value)} /></label>
               </div>
               <div className="form-row">
-                <label className="form-field"><span>Reels</span><input required min="0" type="number" value={draft.reels} onChange={(event) => updateNumber("reels", event.target.value)} /></label>
-                <label className="form-field"><span>Stories</span><input required min="0" type="number" value={draft.stories} onChange={(event) => updateNumber("stories", event.target.value)} /></label>
+                <label className="form-field"><span>Reels</span><ClearableNumberInput required min={0} value={draft.reels} onValueChange={(value) => updateNumber("reels", value)} /></label>
+                <label className="form-field"><span>Stories</span><ClearableNumberInput required min={0} value={draft.stories} onValueChange={(value) => updateNumber("stories", value)} /></label>
                 <label className="form-field"><span>Tu mejor publicación</span><input value={draft.bestPost} onChange={(event) => setDraft((value) => ({ ...value, bestPost: event.target.value }))} placeholder="Ej.: Reel antes y después" /></label>
               </div>
             </fieldset>
