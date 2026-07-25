@@ -56,6 +56,7 @@ import {
   businessInitials,
   calculateAudit,
   calculateChange,
+  isPlannedForWeek,
   normalizeAuditAnswers,
   type AuditAnswers,
   type BusinessProfile,
@@ -684,12 +685,12 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
   const weeklyMetrics = [...(data.weeklyMetrics ?? [])].sort((a, b) => a.weekStart.localeCompare(b.weekStart));
   const latest = weeklyMetrics.at(-1);
   const previous = weeklyMetrics.at(-2);
+  const calendarWeek = getCalendarWeek(0);
   const currentPlan = (data.plannedItems ?? [])
-    .filter((item) => (item.week ?? 0) === 0)
+    .filter((item) => isPlannedForWeek(item, calendarWeek.weekStart, 0))
     .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
   const pendingPlan = currentPlan.filter((item) => item.status !== "Publicado");
   const nextContent = pendingPlan[0];
-  const calendarWeek = getCalendarWeek(0);
   const publishedDays = new Set(currentPlan.filter((item) => item.status === "Publicado").map((item) => item.day));
   const interactions = latest ? latest.likes + latest.comments + latest.saves : 0;
   const metricCards = [
@@ -948,6 +949,8 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
     const plannedItem: PlannedContent = {
       id: Math.max(0, ...plannedItems.map((planned) => planned.id)) + index + 1,
       week: 0,
+      weekStart: getCalendarWeek(0).weekStart,
+      sourceIdeaId: null,
       day: dayIndex >= 0 ? dayIndex : Math.min(index, 6),
       time: "19:00",
       format: item.format,
@@ -955,7 +958,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       status: "Idea",
       color: item.format === "Reel" ? "#e83387" : item.format === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
     };
-    const alreadyPlanned = plannedItems.some((planned) => planned.title === plannedItem.title && (planned.week ?? 0) === 0);
+    const alreadyPlanned = plannedItems.some((planned) => planned.title === plannedItem.title && isPlannedForWeek(planned, plannedItem.weekStart!, 0));
     if (!alreadyPlanned) onUpdate({ ...data, plannedItems: [...plannedItems, plannedItem] });
     onNavigate("planificador");
   };
@@ -1148,6 +1151,13 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
 const ideaIcon = (format: ContentIdea["format"]) =>
   format === "Reel" ? Video : format === "Carrusel" ? ImageIcon : MessageCircleMore;
 
+const ideaFeedbackReasons = [
+  "No va con mi negocio",
+  "Ya publiqué algo parecido",
+  "Es difícil de crear",
+  "No me gusta el tono",
+];
+
 function IdeaModal({
   idea,
   onClose,
@@ -1164,7 +1174,9 @@ function IdeaModal({
   const [script, setScript] = useState(idea.script);
   const [caption, setCaption] = useState(idea.caption);
   const [hashtags, setHashtags] = useState(idea.hashtags);
-  const editedIdea = { ...idea, hook, script, caption, hashtags };
+  const [feedback, setFeedback] = useState<ContentIdea["feedback"]>(idea.feedback ?? null);
+  const [feedbackReason, setFeedbackReason] = useState(idea.feedbackReason ?? "");
+  const editedIdea = { ...idea, hook, script, caption, hashtags, feedback, feedbackReason };
 
   const saveAndClose = () => {
     onSave(editedIdea);
@@ -1238,6 +1250,53 @@ function IdeaModal({
             <textarea value={hashtags} onChange={(event) => setHashtags(event.target.value)} />
           </div>
         </div>
+        <section className="idea-learning" aria-label="Enseñar a RomaCrece sobre esta idea">
+          <div>
+            <strong>¿Esta idea encaja contigo?</strong>
+            <span>Tu respuesta ayuda a que las próximas sean más acertadas.</span>
+          </div>
+          <div className="idea-feedback-actions">
+            <button
+              type="button"
+              className={feedback === "useful" ? "active useful" : ""}
+              aria-pressed={feedback === "useful"}
+              onClick={() => { setFeedback("useful"); setFeedbackReason(""); }}
+            >
+              <CheckCircle2 size={16} /> Sí, me sirve
+            </button>
+            <button
+              type="button"
+              className={feedback === "not_useful" ? "active not-useful" : ""}
+              aria-pressed={feedback === "not_useful"}
+              onClick={() => setFeedback("not_useful")}
+            >
+              <X size={16} /> No es para mí
+            </button>
+          </div>
+          {feedback === "not_useful" && (
+            <div className="feedback-reasons">
+              <span>¿Por qué?</span>
+              {ideaFeedbackReasons.map((reason) => (
+                <button
+                  type="button"
+                  className={feedbackReason === reason ? "active" : ""}
+                  aria-pressed={feedbackReason === reason}
+                  key={reason}
+                  onClick={() => setFeedbackReason(reason)}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+          )}
+          {feedback && (
+            <small>
+              {feedback === "useful"
+                ? "Aprendido: RomaCrece buscará más ideas con este enfoque."
+                : "Aprendido: RomaCrece evitará repetir este tipo de idea."}
+            </small>
+          )}
+        </section>
         <div className="modal-actions">
           <button
             className="secondary-button"
@@ -1266,6 +1325,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
   const ideas = data.ideas ?? [];
   const visibleIdeas = ideas.filter((idea) => idea.goal === goal && (format === "Todos" || idea.format === format));
   const localMemorySignals = ideas.filter((idea) => idea.saved).length
+    + ideas.filter((idea) => Boolean(idea.feedback)).length
     + (data.plannedItems ?? []).filter((item) => item.status === "Publicado" || item.status === "Listo").length
     + (data.weeklyMetrics ?? []).length;
 
@@ -1325,7 +1385,11 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
           <span className="summary-icon"><Zap size={19} /></span>
           <div>
             <strong>{visibleIdeas.length} ideas para {goal.toLowerCase()}</strong>
-            <p>Gemini recuerda {memorySignals ?? localMemorySignals} señales de tus preferencias y resultados</p>
+            <p>
+              {(memorySignals ?? localMemorySignals) > 0
+                ? `RomaCrece ya usa ${memorySignals ?? localMemorySignals} aprendizajes de tu negocio`
+                : "Marca qué ideas te sirven y RomaCrece aprenderá de tus decisiones"}
+            </p>
           </div>
         </div>
         <span>Actualizado hoy</span>
@@ -1368,6 +1432,11 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
                 <TrendingUp size={15} />
                 {idea.reason}
               </div>
+              {idea.feedback && (
+                <div className={`idea-feedback-status ${idea.feedback}`}>
+                  {idea.feedback === "useful" ? "RomaCrece aprendió: te sirve" : "RomaCrece aprendió: no repetir"}
+                </div>
+              )}
               <div className="idea-actions">
                 <button className="use-button" onClick={() => setSelectedIdea(idea)}>
                   Abrir y editar idea <ArrowRight size={15} />
@@ -1450,7 +1519,7 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
   const [editingId, setEditingId] = useState<number | null>(null);
   const plannedItems = items;
   const calendarWeek = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
-  const visibleItems = plannedItems.filter((item) => (item.week ?? 0) === weekOffset);
+  const visibleItems = plannedItems.filter((item) => isPlannedForWeek(item, calendarWeek.weekStart, weekOffset));
   const formatBalance = ([
     { format: "Reel", color: "#e83387" },
     { format: "Carrusel", color: "#7c5ce5" },
@@ -1487,9 +1556,12 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
 
   const addContent = () => {
     if (!newTitle.trim()) return;
+    const editingItem = plannedItems.find((item) => item.id === editingId);
     const nextItem: PlannedContent = {
       id: editingId ?? Date.now(),
       week: weekOffset,
+      weekStart: calendarWeek.weekStart,
+      sourceIdeaId: editingItem?.sourceIdeaId ?? null,
       day: newDay,
       time: newTime,
       format: newFormat,
@@ -1682,7 +1754,7 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
 }
 
 type WeeklyDraft = Omit<WeeklyMetrics, "id" | "weekStart" | "updatedAt">;
-type WeeklyNumberField = Exclude<keyof WeeklyDraft, "bestPost">;
+type WeeklyNumberField = Exclude<keyof WeeklyDraft, "bestPost" | "bestPlannedContentId">;
 
 const emptyWeeklyDraft = (followers: number): WeeklyDraft => ({
   followers,
@@ -1697,6 +1769,7 @@ const emptyWeeklyDraft = (followers: number): WeeklyDraft => ({
   reels: 0,
   stories: 0,
   bestPost: "",
+  bestPlannedContentId: null,
 });
 
 const numberFormat = new Intl.NumberFormat("es");
@@ -1731,6 +1804,9 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   );
   const current = metrics.find((item) => item.weekStart === week.weekStart);
   const previous = metrics.find((item) => item.weekStart === previousWeekKey(week.weekStart));
+  const plannedWeekItems = (data.plannedItems ?? [])
+    .filter((item) => isPlannedForWeek(item, week.weekStart, weekOffset))
+    .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
   const closestFollowers = [...metrics]
     .reverse()
     .find((item) => item.weekStart < week.weekStart)?.followers ?? data.answers.followers ?? 0;
@@ -1753,6 +1829,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
         reels: current.reels,
         stories: current.stories,
         bestPost: current.bestPost,
+        bestPlannedContentId: current.bestPlannedContentId ?? null,
       }
       : emptyWeeklyDraft(closestFollowers));
     setShowForm(true);
@@ -1861,7 +1938,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
               {current.bestPost && (
                 <div className="result-win">
                   <Award size={18} />
-                  <span><strong>Lo que mejor funcionó:</strong> {current.bestPost}</span>
+                  <span><strong>Lo que mejor funcionó:</strong> {current.bestPost}<small> RomaCrece usará este resultado para mejorar tus próximas ideas.</small></span>
                 </div>
               )}
             </div>
@@ -2028,8 +2105,33 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
               <div className="form-row">
                 <label className="form-field"><span>Reels</span><ClearableNumberInput required min={0} value={draft.reels} onValueChange={(value) => updateNumber("reels", value)} /></label>
                 <label className="form-field"><span>Stories</span><ClearableNumberInput required min={0} value={draft.stories} onValueChange={(value) => updateNumber("stories", value)} /></label>
-                <label className="form-field"><span>Tu mejor publicación</span><input value={draft.bestPost} onChange={(event) => setDraft((value) => ({ ...value, bestPost: event.target.value }))} placeholder="Ej.: Reel antes y después" /></label>
+                <label className="form-field">
+                  <span>Contenido que mejor funcionó</span>
+                  <select
+                    value={draft.bestPlannedContentId ?? ""}
+                    onChange={(event) => {
+                      const selectedId = event.target.value ? Number(event.target.value) : null;
+                      const selected = plannedWeekItems.find((item) => item.id === selectedId);
+                      setDraft((value) => ({
+                        ...value,
+                        bestPlannedContentId: selectedId,
+                        bestPost: selected?.title ?? "",
+                      }));
+                    }}
+                  >
+                    <option value="">Otra o todavía no lo sé</option>
+                    {plannedWeekItems.map((item) => (
+                      <option value={item.id} key={item.id}>{item.title} · {item.status}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
+              {draft.bestPlannedContentId === null && (
+                <label className="form-field weekly-best-custom">
+                  <span>Si no estaba en el calendario, escribe su nombre</span>
+                  <input value={draft.bestPost} onChange={(event) => setDraft((value) => ({ ...value, bestPost: event.target.value }))} placeholder="Ej.: Reel antes y después" />
+                </label>
+              )}
             </fieldset>
 
             <div className="planner-modal-actions">
@@ -2176,9 +2278,18 @@ export default function Home() {
 
   const planIdea = (idea: ContentIdea) => {
     if (!data) return;
+    const weekStart = getCalendarWeek(0).weekStart;
+    const existingPlan = (data.plannedItems ?? []).some((item) =>
+      item.sourceIdeaId === idea.id && isPlannedForWeek(item, weekStart, 0));
+    if (existingPlan) {
+      setActiveView("planificador");
+      return;
+    }
     const plannedItem: PlannedContent = {
       id: Date.now(),
       week: 0,
+      weekStart,
+      sourceIdeaId: idea.id,
       day: 3,
       time: "19:00",
       format: idea.format,
@@ -2188,7 +2299,9 @@ export default function Home() {
     };
     updateData({
       ...data,
-      ideas: (data.ideas ?? []).map((item) => item.id === idea.id ? idea : item),
+      ideas: (data.ideas ?? []).map((item) => item.id === idea.id
+        ? { ...idea, feedback: "useful", feedbackReason: "" }
+        : item),
       plannedItems: [...(data.plannedItems ?? []), plannedItem],
     });
     setActiveView("planificador");

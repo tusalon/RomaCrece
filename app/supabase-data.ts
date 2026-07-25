@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { normalizeAuditAnswers, type RomaCreceData } from "./audit-model";
+import { normalizeAuditAnswers, weekStartFromOffset, type RomaCreceData } from "./audit-model";
 import { supabase } from "./supabase";
 
 type BusinessRow = RomaCreceData["business"] & { id: string };
@@ -28,12 +28,12 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       .maybeSingle(),
     supabase
       .from("content_ideas")
-      .select("client_id,format,goal,title,hook,script,caption,hashtags,reason,potential,color,saved,created_at")
+      .select("client_id,format,goal,title,hook,script,caption,hashtags,reason,potential,color,saved,feedback,feedback_reason,created_at")
       .eq("business_id", business.id)
       .order("created_at", { ascending: true }),
     supabase
       .from("planned_content")
-      .select("client_id,week_offset,day_index,publish_time,format,title,status,color")
+      .select("client_id,week_offset,week_start,source_idea_client_id,day_index,publish_time,format,title,status,color")
       .eq("business_id", business.id),
     supabase
       .from("ai_audits")
@@ -44,7 +44,7 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       .maybeSingle(),
     supabase
       .from("weekly_metrics")
-      .select("id,week_start,followers,reach,profile_visits,likes,comments,saves,messages,bookings,posts,reels,stories,best_post,updated_at")
+      .select("id,week_start,followers,reach,profile_visits,likes,comments,saves,messages,bookings,posts,reels,stories,best_post,best_planned_content_client_id,updated_at")
       .eq("business_id", business.id)
       .order("week_start", { ascending: true }),
   ]);
@@ -85,11 +85,15 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       score: idea.potential,
       color: idea.color,
       saved: idea.saved,
+      feedback: idea.feedback ?? null,
+      feedbackReason: idea.feedback_reason ?? "",
       createdAt: idea.created_at,
     })),
     plannedItems: (plannerResponse.data ?? []).map((item) => ({
       id: item.client_id,
       week: item.week_offset,
+      weekStart: item.week_start ?? undefined,
+      sourceIdeaId: item.source_idea_client_id ?? null,
       day: item.day_index,
       time: item.publish_time,
       format: item.format,
@@ -112,6 +116,7 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
       reels: item.reels,
       stories: item.stories,
       bestPost: item.best_post,
+      bestPlannedContentId: item.best_planned_content_client_id ?? null,
       updatedAt: item.updated_at,
     })),
   } as RomaCreceData;
@@ -168,6 +173,8 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       potential: idea.score,
       color: idea.color,
       saved: idea.saved,
+      feedback: idea.feedback ?? null,
+      feedback_reason: idea.feedbackReason ?? "",
       created_at: idea.createdAt,
     })));
     if (error) throw error;
@@ -181,6 +188,8 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       owner_id: user.id,
       client_id: item.id,
       week_offset: item.week ?? 0,
+      week_start: item.weekStart ?? weekStartFromOffset(item.week ?? 0),
+      source_idea_client_id: item.sourceIdeaId ?? null,
       day_index: item.day,
       publish_time: item.time,
       format: item.format,
@@ -208,6 +217,7 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       reels: item.reels,
       stories: item.stories,
       best_post: item.bestPost,
+      best_planned_content_client_id: item.bestPlannedContentId ?? null,
       updated_at: item.updatedAt,
     })), { onConflict: "business_id,week_start" });
     if (error) throw error;

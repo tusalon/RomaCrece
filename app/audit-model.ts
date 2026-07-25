@@ -76,6 +76,7 @@ export type WeeklyMetrics = {
   reels: number;
   stories: number;
   bestPost: string;
+  bestPlannedContentId: number | null;
   updatedAt: string;
 };
 
@@ -103,12 +104,16 @@ export type ContentIdea = {
   score: number;
   color: string;
   saved: boolean;
+  feedback?: "useful" | "not_useful" | null;
+  feedbackReason?: string;
   createdAt: string;
 };
 
 export type PlannedContent = {
   id: number;
   week?: number;
+  weekStart?: string;
+  sourceIdeaId?: number | null;
   day: number;
   time: string;
   format: ContentIdea["format"];
@@ -118,6 +123,20 @@ export type PlannedContent = {
 };
 
 export const STORAGE_KEY = "romacrece:mvp:v1";
+
+export function weekStartFromOffset(offset = 0, referenceDate = new Date()): string {
+  const date = new Date(referenceDate);
+  date.setHours(12, 0, 0, 0);
+  date.setDate(date.getDate() - ((date.getDay() + 6) % 7) + offset * 7);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function isPlannedForWeek(item: PlannedContent, weekStart: string, legacyOffset = 0): boolean {
+  return item.weekStart ? item.weekStart === weekStart : (item.week ?? 0) === legacyOffset;
+}
 
 export const initialAuditAnswers: AuditAnswers = {
   country: "",
@@ -366,6 +385,8 @@ export function generateContentIdea(business: BusinessProfile, goal: ContentIdea
     hashtags: `#${brandTag} #${cityTag} #Belleza #${service.replace(/[^\p{L}\p{N}]/gu, "")} #ReservaTuCita`,
     score: Math.min(98, 86 + (seed % 12)),
     saved: false,
+    feedback: null,
+    feedbackReason: "",
     createdAt: new Date().toISOString(),
   };
 }

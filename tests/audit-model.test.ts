@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateAudit, calculateChange, generateContentIdea, initialAuditAnswers, normalizeAuditAnswers } from "../app/audit-model.ts";
+import {
+  calculateAudit,
+  calculateChange,
+  generateContentIdea,
+  initialAuditAnswers,
+  isPlannedForWeek,
+  normalizeAuditAnswers,
+  weekStartFromOffset,
+} from "../app/audit-model.ts";
 
 test("calcula seis categorías y una puntuación dentro del rango", () => {
   const result = calculateAudit(initialAuditAnswers);
@@ -128,4 +136,31 @@ test("compara el cambio porcentual entre dos semanas", () => {
   assert.equal(calculateChange(800, 1000), -20);
   assert.equal(calculateChange(0, 0), 0);
   assert.equal(calculateChange(500, 0), null);
+});
+
+test("guarda el calendario con el lunes real de cada semana", () => {
+  const saturday = new Date(2026, 6, 25, 12);
+
+  assert.equal(weekStartFromOffset(0, saturday), "2026-07-20");
+  assert.equal(weekStartFromOffset(1, saturday), "2026-07-27");
+  assert.equal(weekStartFromOffset(-1, saturday), "2026-07-13");
+});
+
+test("prioriza la fecha real y mantiene compatibilidad con planes anteriores", () => {
+  const datedItem = {
+    id: 1,
+    week: 0,
+    weekStart: "2026-07-13",
+    day: 1,
+    time: "19:00",
+    format: "Reel" as const,
+    title: "Antes y después",
+    status: "Idea" as const,
+    color: "#e83387",
+  };
+  const legacyItem = { ...datedItem, id: 2, weekStart: undefined, week: 1 };
+
+  assert.equal(isPlannedForWeek(datedItem, "2026-07-20", 0), false);
+  assert.equal(isPlannedForWeek(datedItem, "2026-07-13", -1), true);
+  assert.equal(isPlannedForWeek(legacyItem, "2026-07-27", 1), true);
 });

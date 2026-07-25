@@ -136,15 +136,16 @@ Deno.serve(async (request: Request) => {
   const [auditResponse, analysisResponse, ideasResponse, planResponse, metricsResponse] = await Promise.all([
     admin.from("audit_snapshots").select("answers,recommendations,score").eq("business_id", business.id).order("audited_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("ai_audits").select("analysis").eq("business_id", business.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    admin.from("content_ideas").select("format,goal,title,hook,saved,created_at").eq("business_id", business.id).order("created_at", { ascending: false }).limit(20),
-    admin.from("planned_content").select("format,title,status,week_offset,day_index").eq("business_id", business.id).order("client_id", { ascending: false }).limit(20),
-    admin.from("weekly_metrics").select("week_start,reach,likes,comments,saves,messages,bookings,best_post,posts,reels,stories").eq("business_id", business.id).order("week_start", { ascending: false }).limit(8),
+    admin.from("content_ideas").select("client_id,format,goal,title,hook,saved,feedback,feedback_reason,created_at").eq("business_id", business.id).order("created_at", { ascending: false }).limit(30),
+    admin.from("planned_content").select("client_id,format,title,status,week_start,source_idea_client_id,day_index").eq("business_id", business.id).order("client_id", { ascending: false }).limit(30),
+    admin.from("weekly_metrics").select("week_start,reach,likes,comments,saves,messages,bookings,best_post,best_planned_content_client_id,posts,reels,stories").eq("business_id", business.id).order("week_start", { ascending: false }).limit(8),
   ]);
 
   const ideas = ideasResponse.data ?? [];
   const plan = planResponse.data ?? [];
   const metrics = metricsResponse.data ?? [];
   const memorySignals = ideas.filter((item) => item.saved).length
+    + ideas.filter((item) => Boolean(item.feedback)).length
     + plan.filter((item) => item.status === "Listo" || item.status === "Publicado").length
     + metrics.length;
 
@@ -153,7 +154,12 @@ Eres la estratega de contenido de RomaCrece para negocios de belleza.
 Crea exactamente ${count} ${count === 1 ? "idea" : "ideas"} con el objetivo "${goal}".
 Escribe en español claro, cálido y listo para usar. No inventes resultados ni digas que viste Instagram.
 Cada idea debe ser distinta de los títulos anteriores y específica para el negocio.
-Usa la memoria: favorece los tipos de contenido guardados, listos o publicados; toma como señal positiva el mejor contenido semanal; evita repetir lo descartado o repetitivo.
+Usa la memoria de manera explícita:
+- feedback="useful", saved=true y las ideas que llegaron al calendario son señales positivas.
+- feedback="not_useful" es una señal negativa: evita ese enfoque y respeta feedback_reason.
+- source_idea_client_id relaciona una idea con su publicación planificada.
+- best_planned_content_client_id identifica qué publicación tuvo el mejor resultado semanal; crea variaciones, no copias.
+- No repitas títulos ni ganchos anteriores.
 El guion debe tener pasos concretos. El caption debe terminar con una llamada a escribir o reservar. Usa entre 4 y 7 hashtags pertinentes.
 
 NEGOCIO:
@@ -200,6 +206,8 @@ ${JSON.stringify(metrics)}
       score: Math.max(84, 94 - index),
       color: colors[String(idea.format)] ?? "#e83387",
       saved: false,
+      feedback: null,
+      feedbackReason: "",
       createdAt: new Date().toISOString(),
     }));
     return json(request, { ideas: nextIdeas, memorySignals });

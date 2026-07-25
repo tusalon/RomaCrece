@@ -2210,6 +2210,25 @@ button {
   color: var(--green);
 }
 
+.idea-feedback-status {
+  width: fit-content;
+  margin-top: 10px;
+  border-radius: 999px;
+  padding: 5px 8px;
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.idea-feedback-status.useful {
+  background: #e3f7f1;
+  color: #08745b;
+}
+
+.idea-feedback-status.not_useful {
+  background: #f2f4f7;
+  color: #667085;
+}
+
 .idea-actions {
   display: flex;
   gap: 8px;
@@ -2394,6 +2413,80 @@ button {
 .form-field select:focus {
   border-color: #eda8c8;
   box-shadow: 0 0 0 3px rgba(232, 51, 135, 0.08);
+}
+
+.idea-learning {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  border: 1px solid #e8e1dd;
+  border-radius: 14px;
+  background: white;
+  padding: 15px;
+}
+
+.idea-learning > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.idea-learning strong {
+  color: #344054;
+  font-size: 10px;
+}
+
+.idea-learning > div:first-child span,
+.idea-learning small {
+  color: #667085;
+  font-size: 9px;
+}
+
+.idea-learning small {
+  color: #08745b;
+  font-weight: 650;
+}
+
+.idea-feedback-actions,
+.feedback-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.idea-feedback-actions button,
+.feedback-reasons button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e3dedb;
+  border-radius: 9px;
+  background: #fbfaf9;
+  color: #475467;
+  padding: 7px 10px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.idea-feedback-actions button.active.useful {
+  border-color: #8edbc8;
+  background: #e3f7f1;
+  color: #08745b;
+}
+
+.idea-feedback-actions button.active.not-useful,
+.feedback-reasons button.active {
+  border-color: #e98ab7;
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+
+.feedback-reasons > span {
+  width: 100%;
+  color: #667085;
+  font-size: 8px;
+  font-weight: 750;
 }
 
 .modal-actions {
@@ -2821,6 +2914,13 @@ button {
 
 .result-win strong {
   color: white;
+}
+
+.result-win small {
+  display: block;
+  margin-top: 3px;
+  color: #98a2b3;
+  font-size: 8px;
 }
 
 .growth-figure {
@@ -3370,6 +3470,10 @@ button {
 
 .weekly-fieldset .form-field {
   margin-top: 11px;
+}
+
+.weekly-best-custom {
+  max-width: 520px;
 }
 
 .app-loading {
@@ -4342,6 +4446,15 @@ button {
 
   .editor-grid {
     grid-template-columns: 1fr;
+  }
+
+  .idea-learning > div:first-child {
+    flex-direction: column;
+  }
+
+  .idea-feedback-actions button {
+    flex: 1;
+    justify-content: center;
   }
 
   .modal-actions {

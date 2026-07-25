@@ -227,19 +227,19 @@ Deno.serve(async (request: Request) => {
   const [ideasMemory, planMemory, metricsMemory] = await Promise.all([
     admin
       .from("content_ideas")
-      .select("format,goal,title,hook,saved,created_at")
+      .select("client_id,format,goal,title,hook,saved,feedback,feedback_reason,created_at")
       .eq("business_id", savedBusiness.id)
       .order("created_at", { ascending: false })
       .limit(20),
     admin
       .from("planned_content")
-      .select("format,title,status,week_offset,day_index")
+      .select("client_id,format,title,status,week_start,source_idea_client_id,day_index")
       .eq("business_id", savedBusiness.id)
       .order("client_id", { ascending: false })
       .limit(20),
     admin
       .from("weekly_metrics")
-      .select("week_start,reach,likes,comments,saves,messages,bookings,best_post,posts,reels,stories")
+      .select("week_start,reach,likes,comments,saves,messages,bookings,best_post,best_planned_content_client_id,posts,reels,stories")
       .eq("business_id", savedBusiness.id)
       .order("week_start", { ascending: false })
       .limit(8),
@@ -254,6 +254,9 @@ Personaliza las ideas según especialidad, país, ciudad, tamaño del equipo y o
 Da especial importancia a bioStatus, bookingMethod, visualConsistency, contentQuality, ctaFrequency, monthlyMessages y monthlyBookings.
 Si alguna cifra es cero o aproximada, trátala como punto de partida y no como un fracaso.
 Relaciona las recomendaciones con mensajes y reservas, no solamente con seguidores.
+Usa feedback="useful" como preferencia y feedback="not_useful" como algo que debes evitar, respetando feedback_reason.
+Relaciona source_idea_client_id con best_planned_content_client_id para reconocer qué ideas terminaron funcionando mejor.
+Cuando sugieras repetir algo exitoso, crea una variación y no una copia literal.
 
 NEGOCIO:
 ${JSON.stringify(business)}
@@ -264,7 +267,7 @@ ${JSON.stringify(answers)}
 PUNTUACIÓN CALCULADA POR ROMACRECE:
 ${JSON.stringify(baseAudit)}
 
-MEMORIA DE IDEAS (saved indica preferencia):
+MEMORIA DE IDEAS (saved y feedback indican preferencia):
 ${JSON.stringify(ideasMemory.data ?? [])}
 
 MEMORIA DEL CALENDARIO Y ESTADOS:
