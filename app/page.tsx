@@ -56,7 +56,6 @@ import {
   businessInitials,
   calculateAudit,
   calculateChange,
-  generateContentIdea,
   normalizeAuditAnswers,
   type AuditAnswers,
   type BusinessProfile,
@@ -65,6 +64,7 @@ import {
   type RomaCreceData,
   type WeeklyMetrics,
 } from "./audit-model";
+import { AiContentError, generateAiContent } from "./content-ai";
 import { AiAnalysisError, generateAiAnalysis } from "./gemini";
 import {
   RservasLoginError,
@@ -83,45 +83,6 @@ const navItems = [
   { id: "ideas" as View, label: "Ideas", icon: Lightbulb },
   { id: "planificador" as View, label: "Planificador", icon: CalendarDays },
   { id: "resultados" as View, label: "Mi semana", icon: ChartNoAxesCombined },
-];
-
-const metrics = [
-  {
-    label: "Alcance",
-    value: "12.4K",
-    change: "+18%",
-    detail: "vs. semana anterior",
-    icon: Eye,
-    color: "#7c5ce5",
-    tint: "#f0ebff",
-  },
-  {
-    label: "Interacciones",
-    value: "864",
-    change: "+12%",
-    detail: "vs. semana anterior",
-    icon: Users,
-    color: "#e83387",
-    tint: "#fdeaf3",
-  },
-  {
-    label: "Visitas al perfil",
-    value: "1,208",
-    change: "+24%",
-    detail: "vs. semana anterior",
-    icon: MousePointerClick,
-    color: "#ef8a2e",
-    tint: "#fff2e3",
-  },
-  {
-    label: "Reservas desde IG",
-    value: "14",
-    change: "+4",
-    detail: "esta semana",
-    icon: CalendarDays,
-    color: "#0c9b78",
-    tint: "#e3f7f1",
-  },
 ];
 
 const emptyBusiness: BusinessProfile = {
@@ -432,36 +393,6 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
   );
 }
 
-const weekContent = [
-  {
-    day: "Hoy",
-    date: "23 JUL",
-    type: "Reel",
-    title: "3 errores que dañan tus uñas sin darte cuenta",
-    time: "7:30 p. m.",
-    status: "Listo",
-    accent: "#e83387",
-  },
-  {
-    day: "Viernes",
-    date: "24 JUL",
-    type: "Historia",
-    title: "Antes y después: diseño almendrado",
-    time: "12:00 p. m.",
-    status: "Borrador",
-    accent: "#7c5ce5",
-  },
-  {
-    day: "Sábado",
-    date: "25 JUL",
-    type: "Carrusel",
-    title: "5 diseños elegantes para tu próxima cita",
-    time: "10:00 a. m.",
-    status: "Idea",
-    accent: "#ef8a2e",
-  },
-];
-
 function Brand() {
   return (
     <div className="brand">
@@ -485,6 +416,7 @@ function Sidebar({
   business,
   activeView,
   onNavigate,
+  onEditBusiness,
   onSignOut,
   mobileOpen,
   closeMobile,
@@ -492,6 +424,7 @@ function Sidebar({
   business: BusinessProfile;
   activeView: View;
   onNavigate: (view: View) => void;
+  onEditBusiness: () => void;
   onSignOut: () => void;
   mobileOpen: boolean;
   closeMobile: () => void;
@@ -552,11 +485,14 @@ function Sidebar({
         </div>
 
         <div className="sidebar-footer">
-          <button className="nav-item quiet">
+          <button
+            className="nav-item quiet"
+            onClick={() => window.open("https://wa.me/5354066204?text=Hola%2C%20necesito%20ayuda%20con%20RomaCrece", "_blank", "noopener,noreferrer")}
+          >
             <CircleHelp size={19} />
             <span>Ayuda</span>
           </button>
-          <button className="nav-item quiet">
+          <button className="nav-item quiet" onClick={onEditBusiness}>
             <Settings size={19} />
             <span>Configuración</span>
           </button>
@@ -574,8 +510,24 @@ function Sidebar({
   );
 }
 
-function Header({ business, openMenu }: { business: BusinessProfile; openMenu: () => void }) {
-  const initials = businessInitials(business.name);
+function Header({ data, openMenu, onNavigate }: { data: RomaCreceData; openMenu: () => void; onNavigate: (view: View) => void }) {
+  const [query, setQuery] = useState("");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const initials = businessInitials(data.business.name);
+  const currentWeek = getCalendarWeek(0).weekStart;
+  const pendingContent = (data.plannedItems ?? []).filter((item) => (item.week ?? 0) === 0 && item.status !== "Publicado").length;
+  const weekRegistered = (data.weeklyMetrics ?? []).some((item) => item.weekStart === currentWeek);
+
+  const runSearch = () => {
+    const normalized = query.trim().toLocaleLowerCase("es");
+    if (!normalized) return;
+    const match = navItems.find((item) => item.label.toLocaleLowerCase("es").includes(normalized) || item.id.includes(normalized));
+    if (match) {
+      onNavigate(match.id);
+      setQuery("");
+    }
+  };
+
   return (
     <header className="topbar">
       <button className="menu-button" aria-label="Abrir menú" onClick={openMenu}>
@@ -586,20 +538,41 @@ function Header({ business, openMenu }: { business: BusinessProfile; openMenu: (
       </div>
       <label className="search-box">
         <Search size={18} />
-        <input aria-label="Buscar en RomaCrece" placeholder="Buscar en RomaCrece" />
-        <kbd>⌘ K</kbd>
+        <input
+          aria-label="Buscar en RomaCrece"
+          placeholder="Buscar: auditoría, ideas, semana..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") runSearch();
+          }}
+        />
+        <kbd>Enter</kbd>
       </label>
       <div className="topbar-actions">
         <div className="instagram-pill">
           <Instagram size={17} />
-          <span>@{business.instagram}</span>
+          <span>@{data.business.instagram}</span>
           <Check size={13} />
         </div>
-        <button className="icon-button" aria-label="Notificaciones">
+        <button className="icon-button" aria-label="Notificaciones" aria-expanded={showNotifications} onClick={() => setShowNotifications((value) => !value)}>
           <Bell size={19} />
-          <span className="notification-dot" />
+          {(!weekRegistered || pendingContent > 0) && <span className="notification-dot" />}
         </button>
         <div className="topbar-avatar">{initials}</div>
+        {showNotifications && (
+          <div className="notification-panel">
+            <strong>Tu semana en RomaCrece</strong>
+            <button onClick={() => { onNavigate("planificador"); setShowNotifications(false); }}>
+              <CalendarDays size={16} />
+              <span>{pendingContent > 0 ? `${pendingContent} contenidos pendientes` : "Tu calendario está al día"}</span>
+            </button>
+            <button onClick={() => { onNavigate("resultados"); setShowNotifications(false); }}>
+              <ChartNoAxesCombined size={16} />
+              <span>{weekRegistered ? "Resultados de esta semana guardados" : "Registra los resultados de esta semana"}</span>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -616,8 +589,32 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view: View) => void }) {
-  const [completed, setCompleted] = useState(false);
+function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavigate: (view: View) => void; onUpdate: (data: RomaCreceData) => void }) {
+  const weeklyMetrics = [...(data.weeklyMetrics ?? [])].sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+  const latest = weeklyMetrics.at(-1);
+  const previous = weeklyMetrics.at(-2);
+  const currentPlan = (data.plannedItems ?? [])
+    .filter((item) => (item.week ?? 0) === 0)
+    .sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
+  const pendingPlan = currentPlan.filter((item) => item.status !== "Publicado");
+  const nextContent = pendingPlan[0];
+  const calendarWeek = getCalendarWeek(0);
+  const publishedDays = new Set(currentPlan.filter((item) => item.status === "Publicado").map((item) => item.day));
+  const interactions = latest ? latest.likes + latest.comments + latest.saves : 0;
+  const metricCards = [
+    { label: "Alcance", value: latest?.reach, change: metricDifference(latest?.reach ?? 0, previous?.reach, true), icon: Eye, color: "#7c5ce5", tint: "#f0ebff" },
+    { label: "Interacciones", value: latest ? interactions : undefined, change: metricDifference(interactions, previous ? previous.likes + previous.comments + previous.saves : undefined), icon: Users, color: "#e83387", tint: "#fdeaf3" },
+    { label: "Visitas al perfil", value: latest?.profileVisits, change: metricDifference(latest?.profileVisits ?? 0, previous?.profileVisits), icon: MousePointerClick, color: "#ef8a2e", tint: "#fff2e3" },
+    { label: "Reservas desde IG", value: latest?.bookings, change: metricDifference(latest?.bookings ?? 0, previous?.bookings), icon: CalendarDays, color: "#0c9b78", tint: "#e3f7f1" },
+  ];
+
+  const markPublished = () => {
+    if (!nextContent) return;
+    onUpdate({
+      ...data,
+      plannedItems: (data.plannedItems ?? []).map((item) => item.id === nextContent.id ? { ...item, status: "Publicado" } : item),
+    });
+  };
 
   return (
     <div className="page-content">
@@ -659,7 +656,7 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
           <div className="score-panel">
             <ScoreRing score={data.audit.score} />
             <span className="score-label">
-              <TrendingUp size={15} /> +6 puntos este mes
+              <TrendingUp size={15} /> Evaluación actual
             </span>
           </div>
           <div className="audit-shape shape-one" />
@@ -673,20 +670,18 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
             </span>
             <span>PRIORIDAD DE HOY</span>
           </div>
-          <h3>Publica tu Reel educativo</h3>
-          <p>
-            Los Reels con consejos generan un 34% más de guardados en tu cuenta.
-          </p>
+          <h3>{nextContent?.title ?? "Planifica tu próxima publicación"}</h3>
+          <p>{nextContent ? "Este es el próximo contenido pendiente de tu calendario." : "Añade una idea al calendario para convertirla en una tarea clara."}</p>
           <div className="focus-meta">
-            <span><Clock3 size={15} /> 7:30 p. m.</span>
-            <span><Instagram size={15} /> Reel</span>
+            <span><Clock3 size={15} /> {nextContent?.time ?? "Elige una hora"}</span>
+            <span><Instagram size={15} /> {nextContent?.format ?? "Sin formato"}</span>
           </div>
           <button
-            className={`task-button ${completed ? "done" : ""}`}
-            onClick={() => setCompleted((value) => !value)}
+            className="task-button"
+            onClick={nextContent ? markPublished : () => onNavigate("planificador")}
           >
-            {completed ? <CheckCircle2 size={17} /> : <span className="empty-check" />}
-            {completed ? "Marcado como completado" : "Marcar como completado"}
+            {nextContent ? <span className="empty-check" /> : <Plus size={17} />}
+            {nextContent ? "Marcar como publicado" : "Abrir planificador"}
           </button>
         </article>
       </section>
@@ -702,7 +697,7 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
           </button>
         </div>
         <div className="metric-grid">
-          {metrics.map((metric) => {
+          {metricCards.map((metric) => {
             const Icon = metric.icon;
             return (
               <article className="metric-card" key={metric.label}>
@@ -714,11 +709,14 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
                 </div>
                 <div className="metric-copy">
                   <span>{metric.label}</span>
-                  <strong>{metric.value}</strong>
+                  <strong>{metric.value === undefined ? "—" : numberFormat.format(metric.value)}</strong>
                 </div>
                 <div className="metric-change">
-                  <span><TrendingUp size={13} /> {metric.change}</span>
-                  <small>{metric.detail}</small>
+                  <span className={`change-${metric.change.direction}`}>
+                    <TrendingUp className={metric.change.direction === "down" ? "trend-down" : ""} size={13} />
+                    {latest ? metric.change.text : "Sin datos"}
+                  </span>
+                  <small>{latest ? "vs. medición anterior" : "Registra tu semana"}</small>
                 </div>
               </article>
             );
@@ -731,25 +729,25 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
           <div className="section-heading compact">
             <div>
               <h2>Tu plan de esta semana</h2>
-              <p>3 contenidos pendientes · 2 publicados</p>
+              <p>{pendingPlan.length} pendientes · {currentPlan.length - pendingPlan.length} publicados</p>
             </div>
             <button className="text-button" onClick={() => onNavigate("planificador")}>
               Abrir calendario <ChevronRight size={16} />
             </button>
           </div>
           <div className="content-list">
-            {weekContent.map((item) => (
-              <div className="content-row" key={item.date}>
+            {currentPlan.slice(0, 3).map((item) => (
+              <div className="content-row" key={item.id}>
                 <div className="content-date">
-                  <strong>{item.day}</strong>
-                  <span>{item.date}</span>
+                  <strong>{calendarWeek.days[item.day]?.today ? "Hoy" : calendarWeek.days[item.day]?.name}</strong>
+                  <span>{calendarWeek.days[item.day]?.date}</span>
                 </div>
                 <span
                   className="content-accent"
-                  style={{ backgroundColor: item.accent }}
+                  style={{ backgroundColor: item.color }}
                 />
                 <div className="content-main">
-                  <span>{item.type}</span>
+                  <span>{item.format}</span>
                   <strong>{item.title}</strong>
                 </div>
                 <div className="content-time">
@@ -759,11 +757,18 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
                 <span className={`content-status status-${item.status.toLowerCase()}`}>
                   {item.status}
                 </span>
-                <button className="row-action" aria-label={`Abrir ${item.title}`}>
+                <button className="row-action" aria-label={`Abrir ${item.title}`} onClick={() => onNavigate("planificador")}>
                   <ChevronRight size={17} />
                 </button>
               </div>
             ))}
+            {currentPlan.length === 0 && (
+              <div className="home-empty-state">
+                <CalendarDays size={22} />
+                <div><strong>Tu calendario está vacío</strong><span>Añade tu primera idea para comenzar.</span></div>
+                <button onClick={() => onNavigate("planificador")}>Planificar</button>
+              </div>
+            )}
           </div>
         </article>
 
@@ -772,33 +777,28 @@ function HomeView({ data, onNavigate }: { data: RomaCreceData; onNavigate: (view
             <span className="flame-wrap"><Flame size={24} /></span>
             <div>
               <span>RACHA DE CONSTANCIA</span>
-              <strong>6 días</strong>
+              <strong>{publishedDays.size} {publishedDays.size === 1 ? "día" : "días"}</strong>
             </div>
           </div>
           <div className="week-dots">
             {["L", "M", "X", "J", "V", "S", "D"].map((day, index) => (
               <div key={day}>
-                <span className={index < 6 ? "complete" : ""}>
-                  {index < 6 ? <Check size={14} /> : ""}
+                <span className={publishedDays.has(index) ? "complete" : ""}>
+                  {publishedDays.has(index) ? <Check size={14} /> : ""}
                 </span>
                 <small>{day}</small>
               </div>
             ))}
           </div>
           <p>
-            ¡Vas muy bien! Publica mañana para completar tu primera semana.
+            {publishedDays.size > 0 ? "Cada publicación marcada alimenta tu historial real." : "Marca como publicado lo que completes durante la semana."}
           </p>
           <div className="mini-insight">
             <MessageCircleMore size={17} />
-            <span><strong>Consejo:</strong> responde los comentarios en menos de 3 horas.</span>
+            <span><strong>Consejo:</strong> registra tus resultados para que las recomendaciones aprendan de lo que funciona.</span>
           </div>
         </article>
       </section>
-
-      <div className="prototype-note">
-        <Sparkles size={15} />
-        Prototipo RomaCrece · Datos de demostración
-      </div>
     </div>
   );
 }
@@ -847,6 +847,26 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       setAiError(error instanceof AiAnalysisError ? error.message : "No pudimos completar el análisis. Inténtalo nuevamente.");
       setAiState("error");
     }
+  };
+
+  const addAiPlanItem = (item: AiAnalysis["weeklyPlan"][number], index: number) => {
+    const normalizedDay = item.day.toLocaleLowerCase("es");
+    const dayIndex = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+      .findIndex((day) => normalizedDay.includes(day));
+    const plannedItems = data.plannedItems ?? [];
+    const plannedItem: PlannedContent = {
+      id: Math.max(0, ...plannedItems.map((planned) => planned.id)) + index + 1,
+      week: 0,
+      day: dayIndex >= 0 ? dayIndex : Math.min(index, 6),
+      time: "19:00",
+      format: item.format,
+      title: item.idea,
+      status: "Idea",
+      color: item.format === "Reel" ? "#e83387" : item.format === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
+    };
+    const alreadyPlanned = plannedItems.some((planned) => planned.title === plannedItem.title && (planned.week ?? 0) === 0);
+    if (!alreadyPlanned) onUpdate({ ...data, plannedItems: [...plannedItems, plannedItem] });
+    onNavigate("planificador");
   };
 
   const findings = analysis
@@ -1003,12 +1023,12 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
             <span className="analysis-label"><Sparkles size={14} /> 1 análisis semanal</span>
           </div>
           <div className="ai-week-grid">
-            {analysis.weeklyPlan.map((item) => (
+            {analysis.weeklyPlan.map((item, index) => (
               <article key={`${item.day}-${item.idea}`}>
                 <span>{item.day} · {item.format}</span>
                 <h3>{item.idea}</h3>
                 <p>{item.goal}</p>
-                <button onClick={() => onNavigate("planificador")}>Abrir calendario <ArrowRight size={14} /></button>
+                <button onClick={() => addAiPlanItem(item, index)}>Añadir al calendario <ArrowRight size={14} /></button>
               </article>
             ))}
           </div>
@@ -1024,26 +1044,35 @@ const ideaIcon = (format: ContentIdea["format"]) =>
 function IdeaModal({
   idea,
   onClose,
+  onSave,
   onPlan,
 }: {
   idea: ContentIdea;
   onClose: () => void;
-  onPlan: () => void;
+  onSave: (idea: ContentIdea) => void;
+  onPlan: (idea: ContentIdea) => void;
 }) {
   const [copied, setCopied] = useState(false);
   const [hook, setHook] = useState(idea.hook);
   const [script, setScript] = useState(idea.script);
   const [caption, setCaption] = useState(idea.caption);
   const [hashtags, setHashtags] = useState(idea.hashtags);
+  const editedIdea = { ...idea, hook, script, caption, hashtags };
+
+  const saveAndClose = () => {
+    onSave(editedIdea);
+    onClose();
+  };
 
   const copyContent = async () => {
     await navigator.clipboard.writeText(`${hook}\n\n${script}\n\n${caption}\n\n${hashtags}`);
+    onSave(editedIdea);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+    <div className="modal-backdrop" role="presentation" onMouseDown={saveAndClose}>
       <section
         className="idea-modal"
         role="dialog"
@@ -1056,7 +1085,7 @@ function IdeaModal({
             <span><Sparkles size={14} /> CONTENIDO GENERADO</span>
             <h2>{idea.title}</h2>
           </div>
-          <button aria-label="Cerrar editor" onClick={onClose}><X size={20} /></button>
+          <button aria-label="Guardar y cerrar editor" onClick={saveAndClose}><X size={20} /></button>
         </div>
         <div className="editor-grid">
           <div className="editor-field">
@@ -1092,7 +1121,7 @@ function IdeaModal({
             {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
             {copied ? "Contenido copiado" : "Copiar contenido"}
           </button>
-          <button className="primary-button" onClick={onPlan}>
+          <button className="primary-button" onClick={() => onPlan(editedIdea)}>
             <CalendarDays size={17} /> Añadir al planificador
           </button>
         </div>
@@ -1103,18 +1132,32 @@ function IdeaModal({
 
 function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (idea: ContentIdea) => void; onUpdate: (data: RomaCreceData) => void }) {
   const [goal, setGoal] = useState<ContentIdea["goal"]>("Atraer");
+  const [format, setFormat] = useState<"Todos" | ContentIdea["format"]>("Todos");
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
+  const [generationError, setGenerationError] = useState("");
+  const [memorySignals, setMemorySignals] = useState<number | null>(null);
   const ideas = data.ideas ?? [];
+  const visibleIdeas = ideas.filter((idea) => idea.goal === goal && (format === "Todos" || idea.format === format));
+  const localMemorySignals = ideas.filter((idea) => idea.saved).length
+    + (data.plannedItems ?? []).filter((item) => item.status === "Publicado" || item.status === "Listo").length
+    + (data.weeklyMetrics ?? []).length;
 
   const updateIdeas = (nextIdeas: ContentIdea[]) => onUpdate({ ...data, ideas: nextIdeas });
 
-  const generateIdea = () => {
+  const generateIdea = async (count = 1) => {
     setIsGenerating(true);
-    window.setTimeout(() => {
-      updateIdeas([generateContentIdea(data.business, goal), ...ideas]);
+    setGenerationError("");
+    try {
+      const result = await generateAiContent(goal, count);
+      updateIdeas([...result.ideas, ...ideas]);
+      setMemorySignals(result.memorySignals);
+    } catch (error) {
+      console.error("No se pudo generar contenido con Gemini", error);
+      setGenerationError(error instanceof AiContentError ? error.message : "No pudimos crear contenido ahora. Inténtalo nuevamente.");
+    } finally {
       setIsGenerating(false);
-    }, 650);
+    }
   };
 
   return (
@@ -1124,7 +1167,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
         title="Ideas que conectan y convierten"
         description={`Contenido personalizado para ${data.business.name}, listo para adaptar y publicar.`}
       >
-        <button className="primary-button" onClick={generateIdea} disabled={isGenerating}>
+        <button className="primary-button" onClick={() => generateIdea()} disabled={isGenerating}>
           {isGenerating ? <LoaderCircle size={17} className="spin" /> : <WandSparkles size={17} />}
           {isGenerating ? "Creando una idea..." : "Generar nueva idea"}
         </button>
@@ -1143,22 +1186,29 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
             </button>
           ))}
         </div>
-        <span className="filter-button"><SlidersHorizontal size={16} /> Todos los formatos</span>
+        <label className="filter-button">
+          <SlidersHorizontal size={16} />
+          <select aria-label="Filtrar formato" value={format} onChange={(event) => setFormat(event.target.value as typeof format)}>
+            <option>Todos</option><option>Reel</option><option>Carrusel</option><option>Historia</option>
+          </select>
+        </label>
       </section>
 
       <section className="ideas-summary">
         <div>
           <span className="summary-icon"><Zap size={19} /></span>
           <div>
-            <strong>{ideas.length} ideas para {goal.toLowerCase()}</strong>
-            <p>Basadas en tu negocio, objetivo y auditoría</p>
+            <strong>{visibleIdeas.length} ideas para {goal.toLowerCase()}</strong>
+            <p>Gemini recuerda {memorySignals ?? localMemorySignals} señales de tus preferencias y resultados</p>
           </div>
         </div>
         <span>Actualizado hoy</span>
       </section>
 
+      {generationError && <div className="content-generation-error" role="alert"><AlertCircle size={17} /> {generationError}</div>}
+
       <section className="ideas-grid">
-        {ideas.map((idea) => {
+        {visibleIdeas.map((idea) => {
           const Icon = ideaIcon(idea.format);
           const isSaved = idea.saved;
           return (
@@ -1203,6 +1253,14 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
             </article>
           );
         })}
+        {visibleIdeas.length === 0 && !isGenerating && (
+          <div className="ideas-empty-state">
+            <Sparkles size={24} />
+            <h2>Aún no tienes ideas para {goal.toLowerCase()}</h2>
+            <p>Gemini usará la memoria de tu negocio para crear la primera.</p>
+            <button className="primary-button" onClick={() => generateIdea()}>Crear una idea</button>
+          </div>
+        )}
       </section>
 
       <section className="inspiration-strip">
@@ -1213,8 +1271,8 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
             <p>RomaCrece puede crear una semana completa combinando tus mejores formatos.</p>
           </div>
         </div>
-        <button onClick={generateIdea} disabled={isGenerating}>
-          Generar otra idea <ArrowRight size={15} />
+        <button onClick={() => generateIdea(5)} disabled={isGenerating}>
+          Crear mi semana con IA <ArrowRight size={15} />
         </button>
       </section>
 
@@ -1222,8 +1280,9 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
         <IdeaModal
           idea={selectedIdea}
           onClose={() => setSelectedIdea(null)}
-          onPlan={() => {
-            onPlan(selectedIdea);
+          onSave={(editedIdea) => updateIdeas(ideas.map((item) => item.id === editedIdea.id ? editedIdea : item))}
+          onPlan={(editedIdea) => {
+            onPlan(editedIdea);
             setSelectedIdea(null);
           }}
         />
@@ -1231,14 +1290,6 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
     </div>
   );
 }
-
-const initialPlannedItems: PlannedContent[] = [
-  { id: 1, day: 0, time: "7:30 p. m.", format: "Reel", title: "3 errores que dañan tus uñas", status: "Listo", color: "#e83387" },
-  { id: 2, day: 1, time: "12:00 p. m.", format: "Historia", title: "Encuesta: elige tu diseño", status: "Publicado", color: "#7c5ce5" },
-  { id: 3, day: 2, time: "6:00 p. m.", format: "Carrusel", title: "5 diseños elegantes", status: "Borrador", color: "#ef8a2e" },
-  { id: 4, day: 4, time: "8:00 p. m.", format: "Reel", title: "Transformación en 12 segundos", status: "Idea", color: "#0c9b78" },
-  { id: 5, day: 5, time: "10:30 a. m.", format: "Historia", title: "Espacios disponibles", status: "Listo", color: "#3a7bd5" },
-];
 
 const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -1277,6 +1328,19 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
   const plannedItems = items;
   const calendarWeek = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
   const visibleItems = plannedItems.filter((item) => (item.week ?? 0) === weekOffset);
+  const formatBalance = ([
+    { format: "Reel", color: "#e83387" },
+    { format: "Carrusel", color: "#7c5ce5" },
+    { format: "Historia", color: "#ef8a2e" },
+  ] as const).map((entry) => ({
+    ...entry,
+    count: visibleItems.filter((item) => item.format === entry.format).length,
+    percent: visibleItems.length ? Math.round((visibleItems.filter((item) => item.format === entry.format).length / visibleItems.length) * 100) : 0,
+  }));
+  const plannedTimes = Object.entries(visibleItems.reduce<Record<string, number>>((counts, item) => {
+    counts[item.time] = (counts[item.time] ?? 0) + 1;
+    return counts;
+  }, {})).sort((a, b) => b[1] - a[1]).slice(0, 2);
 
   const openNewContent = (day = 3) => {
     setEditingId(null);
@@ -1394,31 +1458,31 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
         <article className="optimal-times">
           <div className="panel-heading">
             <div>
-              <span>MEJORES HORARIOS</span>
-              <h3>Cuándo está conectada tu audiencia</h3>
+              <span>TUS HORARIOS</span>
+              <h3>Horas que has planificado esta semana</h3>
             </div>
             <Clock3 size={19} />
           </div>
           <div className="time-chips">
-            <span><strong>Lun–Vie</strong> 7:00–9:00 p. m.</span>
-            <span><strong>Sábados</strong> 10:00 a. m.–12:00 p. m.</span>
+            {plannedTimes.map(([time, count]) => <span key={time}><strong>{time}</strong> {count} {count === 1 ? "contenido" : "contenidos"}</span>)}
+            {plannedTimes.length === 0 && <span><strong>Sin horarios</strong> Añade contenido al calendario</span>}
           </div>
         </article>
         <article className="weekly-balance">
           <div className="panel-heading">
             <div>
               <span>EQUILIBRIO SEMANAL</span>
-              <h3>Tu combinación está bien distribuida</h3>
+              <h3>{visibleItems.length ? "Distribución de tus formatos" : "Añade contenido para ver el equilibrio"}</h3>
             </div>
             <CheckCircle2 size={19} />
           </div>
           <div className="balance-bar">
-            <span style={{ width: "40%", background: "#e83387" }} />
-            <span style={{ width: "35%", background: "#7c5ce5" }} />
-            <span style={{ width: "25%", background: "#ef8a2e" }} />
+            {formatBalance.filter((entry) => entry.percent > 0).map((entry) => (
+              <span key={entry.format} style={{ width: `${entry.percent}%`, background: entry.color }} />
+            ))}
           </div>
           <div className="balance-labels">
-            <span>Educar 40%</span><span>Inspirar 35%</span><span>Vender 25%</span>
+            {formatBalance.map((entry) => <span key={entry.format}>{entry.format} {entry.percent}%</span>)}
           </div>
         </article>
       </section>
@@ -1987,6 +2051,7 @@ export default function Home() {
     if (!data) return;
     const plannedItem: PlannedContent = {
       id: Date.now(),
+      week: 0,
       day: 3,
       time: "19:00",
       format: idea.format,
@@ -1994,7 +2059,11 @@ export default function Home() {
       status: "Idea",
       color: idea.color,
     };
-    updateData({ ...data, plannedItems: [...(data.plannedItems ?? initialPlannedItems), plannedItem] });
+    updateData({
+      ...data,
+      ideas: (data.ideas ?? []).map((item) => item.id === idea.id ? idea : item),
+      plannedItems: [...(data.plannedItems ?? []), plannedItem],
+    });
     setActiveView("planificador");
   };
 
@@ -2020,22 +2089,23 @@ export default function Home() {
         business={data.business}
         activeView={activeView}
         onNavigate={setActiveView}
+        onEditBusiness={() => setEditingAudit(true)}
         onSignOut={signOut}
         mobileOpen={mobileOpen}
         closeMobile={() => setMobileOpen(false)}
       />
       <div className="main-area">
-        <Header business={data.business} openMenu={() => setMobileOpen(true)} />
+        <Header data={data} openMenu={() => setMobileOpen(true)} onNavigate={setActiveView} />
         <div className={`sync-indicator ${syncState}`} role="status">
           {syncState === "saving" && "Guardando…"}
           {syncState === "saved" && "Guardado en la nube"}
           {syncState === "error" && "Sin conexión · guardado local"}
         </div>
         <div className="view-stage" key={activeView}>
-          {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} />}
+          {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "ideas" && <IdeasView data={data} onPlan={planIdea} onUpdate={updateData} />}
-          {activeView === "planificador" && <PlannerView items={data.plannedItems ?? initialPlannedItems} onUpdate={(items) => updateData({ ...data, plannedItems: items })} />}
+          {activeView === "planificador" && <PlannerView items={data.plannedItems ?? []} onUpdate={(items) => updateData({ ...data, plannedItems: items })} />}
           {activeView === "resultados" && <ResultsView data={data} onUpdate={updateData} />}
         </div>
       </div>

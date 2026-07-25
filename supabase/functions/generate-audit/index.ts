@@ -221,6 +221,27 @@ Deno.serve(async (request: Request) => {
     .maybeSingle();
   if (existing?.analysis) return json(request, { analysis: existing.analysis, cached: true });
 
+  const [ideasMemory, planMemory, metricsMemory] = await Promise.all([
+    admin
+      .from("content_ideas")
+      .select("format,goal,title,hook,saved,created_at")
+      .eq("business_id", savedBusiness.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    admin
+      .from("planned_content")
+      .select("format,title,status,week_offset,day_index")
+      .eq("business_id", savedBusiness.id)
+      .order("client_id", { ascending: false })
+      .limit(20),
+    admin
+      .from("weekly_metrics")
+      .select("week_start,reach,likes,comments,saves,messages,bookings,best_post,posts,reels,stories")
+      .eq("business_id", savedBusiness.id)
+      .order("week_start", { ascending: false })
+      .limit(8),
+  ]);
+
   const prompt = `
 Eres la estratega de crecimiento de RomaCrece, una aplicación para negocios de belleza.
 Analiza únicamente la información proporcionada. No afirmes que visitaste Instagram y no inventes métricas.
@@ -236,6 +257,15 @@ ${JSON.stringify(answers)}
 
 PUNTUACIÓN CALCULADA POR ROMACRECE:
 ${JSON.stringify(baseAudit)}
+
+MEMORIA DE IDEAS (saved indica preferencia):
+${JSON.stringify(ideasMemory.data ?? [])}
+
+MEMORIA DEL CALENDARIO Y ESTADOS:
+${JSON.stringify(planMemory.data ?? [])}
+
+RESULTADOS SEMANALES:
+${JSON.stringify(metricsMemory.data ?? [])}
 `;
 
   try {
