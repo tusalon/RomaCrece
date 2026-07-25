@@ -65,7 +65,7 @@ import {
   type RomaCreceData,
   type WeeklyMetrics,
 } from "./audit-model";
-import { generateAiAnalysis } from "./gemini";
+import { AiAnalysisError, generateAiAnalysis } from "./gemini";
 import {
   RservasLoginError,
   loadRomaCreceAccess,
@@ -832,9 +832,11 @@ function ViewIntro({
 function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData; onEdit: () => void; onNavigate: (view: View) => void; onUpdate: (data: RomaCreceData) => void }) {
   const [analysis, setAnalysis] = useState(data.aiAnalysis);
   const [aiState, setAiState] = useState<"idle" | "loading" | "error">("idle");
+  const [aiError, setAiError] = useState("");
 
   const requestAnalysis = async () => {
     setAiState("loading");
+    setAiError("");
     try {
       const result = await generateAiAnalysis(data);
       setAnalysis(result.analysis);
@@ -842,6 +844,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       setAiState("idle");
     } catch (error) {
       console.error("No se pudo generar el análisis con Gemini", error);
+      setAiError(error instanceof AiAnalysisError ? error.message : "No pudimos completar el análisis. Inténtalo nuevamente.");
       setAiState("error");
     }
   };
@@ -924,7 +927,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
             <span>ANÁLISIS PERSONALIZADO</span>
             <h2>Deja que Gemini convierta tus datos en un plan semanal</h2>
             <p>Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad. Puedes generar uno gratis cada semana.</p>
-            {aiState === "error" && <small>No pudimos conectar con Gemini. Tu puntuación básica sigue guardada y puedes intentarlo nuevamente.</small>}
+            {aiState === "error" && <small role="alert">{aiError}</small>}
           </div>
           <button className="primary-button" onClick={requestAnalysis} disabled={aiState === "loading"}>
             {aiState === "loading" ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}

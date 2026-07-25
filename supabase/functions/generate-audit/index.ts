@@ -9,6 +9,8 @@ const allowedOrigins = new Set([
   "https://localhost",
 ]);
 
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
+
 const analysisSchema = {
   type: "object",
   additionalProperties: false,
@@ -76,6 +78,58 @@ function json(request: Request, body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: responseHeaders(request) });
 }
 
+function errorStatus(error: unknown) {
+  if (!error || typeof error !== "object") return null;
+  const candidate = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    error?: { code?: unknown };
+  };
+  for (const value of [candidate.status, candidate.statusCode, candidate.error?.code]) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string" && /^\d{3}$/.test(value)) return Number(value);
+  }
+  return null;
+}
+
+function geminiErrorResponse(error: unknown) {
+  const status = errorStatus(error);
+  const detail = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  if (status === 429 || detail.includes("resource_exhausted") || detail.includes("quota")) {
+    return {
+      code: "gemini_quota",
+      error: "Gemini alcanzó el límite gratuito por ahora. Espera unos minutos e inténtalo nuevamente.",
+      status: 429,
+    };
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    detail.includes("api_key_invalid") ||
+    detail.includes("api key not valid") ||
+    detail.includes("permission_denied")
+  ) {
+    return {
+      code: "gemini_configuration",
+      error: "La clave de Gemini no es válida o todavía no tiene permiso para usar la API.",
+      status: 503,
+    };
+  }
+  if (status === 404 || detail.includes("not_found") || detail.includes("model not found")) {
+    return {
+      code: "gemini_model",
+      error: "El modelo de Gemini no está disponible en este momento. Inténtalo nuevamente más tarde.",
+      status: 503,
+    };
+  }
+  return {
+    code: "gemini_unavailable",
+    error: "Gemini no pudo completar el análisis ahora. Tu puntuación básica sigue guardada.",
+    status: 502,
+  };
+}
+
 function currentWeek() {
   const now = new Date();
   const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -90,27 +144,31 @@ function currentWeek() {
 
 Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: responseHeaders(request) });
-  if (request.method !== "POST") return json(request, { error: "Método no permitido." }, 405);
+  if (request.method !== "POST") return json(request, { error: "Método no permitido.", code: "method_not_allowed" }, 405);
 
   const authorization = request.headers.get("Authorization");
-  if (!authorization?.startsWith("Bearer ")) return json(request, { error: "Inicia sesión para continuar." }, 401);
+  if (!authorization?.startsWith("Bearer ")) return json(request, { error: "Inicia sesión para continuar.", code: "session_required" }, 401);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const geminiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!supabaseUrl || !serviceKey || !geminiKey) return json(request, { error: "El análisis todavía no está configurado." }, 503);
+  if (!supabaseUrl || !serviceKey || !geminiKey) {
+    return json(request, { error: "El análisis todavía no está configurado.", code: "gemini_configuration" }, 503);
+  }
 
   const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
   const token = authorization.slice("Bearer ".length);
   const { data: userData, error: userError } = await admin.auth.getUser(token);
-  if (userError || !userData.user) return json(request, { error: "La sesión no es válida." }, 401);
+  if (userError || !userData.user) return json(request, { error: "Tu sesión venció. Sal y vuelve a entrar.", code: "session_invalid" }, 401);
 
   const { data: membership, error: membershipError } = await admin
     .from("romacrece_memberships")
     .select("negocio_id")
     .eq("auth_user_id", userData.user.id)
     .maybeSingle();
-  if (membershipError || !membership) return json(request, { error: "Tu cuenta no está vinculada a RservasRoma." }, 403);
+  if (membershipError || !membership) {
+    return json(request, { error: "Tu cuenta no está vinculada a RservasRoma.", code: "membership_missing" }, 403);
+  }
 
   const { data: subscription, error: subscriptionError } = await admin
     .from("suscripciones")
@@ -120,23 +178,23 @@ Deno.serve(async (request: Request) => {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (subscriptionError) return json(request, { error: "No pudimos comprobar tu mensualidad." }, 503);
+  if (subscriptionError) return json(request, { error: "No pudimos comprobar tu mensualidad.", code: "subscription_unavailable" }, 503);
   if (!evaluateSubscription(subscription).allowed) {
-    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar Gemini." }, 403);
+    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar Gemini.", code: "subscription_required" }, 403);
   }
 
   let payload: Record<string, unknown>;
   try {
     payload = await request.json();
   } catch {
-    return json(request, { error: "Los datos enviados no son válidos." }, 400);
+    return json(request, { error: "Los datos enviados no son válidos.", code: "invalid_payload" }, 400);
   }
 
   const business = payload.business as Record<string, unknown> | undefined;
   const answers = payload.answers as Record<string, unknown> | undefined;
   const baseAudit = payload.baseAudit as Record<string, unknown> | undefined;
   if (!business?.name || !business.instagram || !answers || !baseAudit) {
-    return json(request, { error: "Completa primero el cuestionario." }, 400);
+    return json(request, { error: "Completa primero el cuestionario.", code: "incomplete_audit" }, 400);
   }
 
   const { data: savedBusiness, error: businessError } = await admin
@@ -152,7 +210,7 @@ Deno.serve(async (request: Request) => {
     }, { onConflict: "owner_id,instagram" })
     .select("id")
     .single();
-  if (businessError) return json(request, { error: "No pudimos preparar los datos del negocio." }, 500);
+  if (businessError) return json(request, { error: "No pudimos preparar los datos del negocio.", code: "business_save_failed" }, 500);
 
   const week = currentWeek();
   const { data: existing } = await admin
@@ -183,8 +241,8 @@ ${JSON.stringify(baseAudit)}
   try {
     const ai = new GoogleGenAI({ apiKey: geminiKey });
     const interaction = await ai.interactions.create({
-      model: "gemini-3.5-flash-lite",
-      input: [{ type: "text", text: prompt }],
+      model: GEMINI_MODEL,
+      input: prompt,
       response_format: {
         type: "text",
         mime_type: "application/json",
@@ -203,7 +261,7 @@ ${JSON.stringify(baseAudit)}
       business_id: savedBusiness.id,
       owner_id: userData.user.id,
       provider: "gemini",
-      model: "gemini-3.5-flash-lite",
+      model: GEMINI_MODEL,
       week_start: week.start,
       analysis,
     });
@@ -211,6 +269,7 @@ ${JSON.stringify(baseAudit)}
     return json(request, { analysis, cached: false });
   } catch (error) {
     console.error("Gemini audit failed", error instanceof Error ? error.message : error);
-    return json(request, { error: "Gemini no pudo completar el análisis. Tu puntuación básica sigue disponible." }, 502);
+    const failure = geminiErrorResponse(error);
+    return json(request, { error: failure.error, code: failure.code }, failure.status);
   }
 });
