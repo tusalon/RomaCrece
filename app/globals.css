@@ -2642,6 +2642,142 @@ button {
   padding-top: 18px;
 }
 
+.planner-create-actions {
+  display: flex;
+  gap: 9px;
+}
+
+.auto-plan-notice {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 15px;
+  border: 1px solid #b8e4d8;
+  border-radius: 12px;
+  background: #eefaf7;
+  color: #08745b;
+  padding: 11px 13px;
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.auto-plan-notice > button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #08745b;
+}
+
+.auto-plan-modal {
+  width: min(650px, 100%);
+}
+
+.auto-plan-help {
+  margin: 14px 0 0;
+  color: #667085;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.auto-plan-fieldset {
+  margin: 20px 0 0;
+  border: 0;
+  padding: 0;
+}
+
+.auto-plan-fieldset legend {
+  margin-bottom: 9px;
+  color: #344054;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.auto-day-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.auto-day-options button {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid #e5dfdc;
+  border-radius: 12px;
+  background: white;
+  color: #475467;
+}
+
+.auto-day-options button:hover,
+.auto-day-options button.active {
+  border-color: #ea8bb8;
+  background: var(--pink-soft);
+  color: var(--pink);
+  transform: translateY(-1px);
+}
+
+.auto-day-options strong {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.auto-day-options span {
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.auto-plan-fields {
+  margin-top: 18px;
+}
+
+.auto-plan-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  border-radius: 12px;
+  background: #f7f4fb;
+  color: #6544c7;
+  padding: 13px;
+}
+
+.auto-plan-preview > svg {
+  flex: 0 0 auto;
+}
+
+.auto-plan-preview > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.auto-plan-preview strong {
+  font-size: 10px;
+}
+
+.auto-plan-preview span {
+  margin-top: 3px;
+  color: #667085;
+  font-size: 8px;
+}
+
+.auto-plan-free {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: #08745b;
+  font-size: 8px;
+  font-weight: 700;
+}
+
 .planner-toolbar {
   display: flex;
   align-items: center;
@@ -4447,6 +4583,15 @@ button {
   .view-actions .secondary-button,
   .view-actions .primary-button {
     width: 100%;
+  }
+
+  .planner-create-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .auto-day-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .audit-card {

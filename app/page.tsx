@@ -57,6 +57,7 @@ import {
   businessInitials,
   calculateAudit,
   calculateChange,
+  generateFreeWeeklyPlan,
   isPlannedForWeek,
   normalizeAuditAnswers,
   type AuditAnswers,
@@ -1551,16 +1552,22 @@ function getCalendarWeek(offset: number) {
   return { days, label: `${format.format(monday)} – ${format.format(sunday)}`, weekStart: toLocalDateKey(monday) };
 }
 
-function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (items: PlannedContent[]) => void }) {
+function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data: RomaCreceData) => void }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAutoPlan, setShowAutoPlan] = useState(false);
+  const [autoDays, setAutoDays] = useState<2 | 3 | 4 | 5>(3);
+  const [autoTime, setAutoTime] = useState("19:00");
+  const [autoGoal, setAutoGoal] = useState<ContentIdea["goal"]>(() =>
+    /reserv|client|venta/i.test(data.business.objective) ? "Vender" : "Atraer");
+  const [planNotice, setPlanNotice] = useState("");
   const [newTitle, setNewTitle] = useState("");
   const [newFormat, setNewFormat] = useState<ContentIdea["format"]>("Reel");
   const [newTime, setNewTime] = useState("19:00");
   const [newDay, setNewDay] = useState(3);
   const [newStatus, setNewStatus] = useState<PlannedContent["status"]>("Idea");
   const [editingId, setEditingId] = useState<number | null>(null);
-  const plannedItems = items;
+  const plannedItems = data.plannedItems ?? [];
   const calendarWeek = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
   const visibleItems = plannedItems.filter((item) => isPlannedForWeek(item, calendarWeek.weekStart, weekOffset));
   const formatBalance = ([
@@ -1612,12 +1619,39 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
       status: newStatus,
       color: newFormat === "Reel" ? "#e83387" : newFormat === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
     };
-    onUpdate(editingId === null
-      ? [...plannedItems, nextItem]
-      : plannedItems.map((item) => item.id === editingId ? nextItem : item));
+    onUpdate({
+      ...data,
+      plannedItems: editingId === null
+        ? [...plannedItems, nextItem]
+        : plannedItems.map((item) => item.id === editingId ? nextItem : item),
+    });
     setNewTitle("");
     setShowAdd(false);
   };
+
+  const createAutomaticWeek = () => {
+    const result = generateFreeWeeklyPlan(data, {
+      daysPerWeek: autoDays,
+      time: autoTime,
+      goal: autoGoal,
+      weekOffset,
+    });
+    if (result.newItems.length === 0) {
+      setPlanNotice(`Ya tienes contenido en ${result.plannedDays} días de esta semana. No añadimos duplicados.`);
+      setShowAutoPlan(false);
+      return;
+    }
+    onUpdate({
+      ...data,
+      ideas: [...(data.ideas ?? []), ...result.newIdeas],
+      plannedItems: [...plannedItems, ...result.newItems],
+    });
+    setPlanNotice(`Semana preparada: añadimos ${result.newItems.length} ${result.newItems.length === 1 ? "contenido" : "contenidos"} sin usar créditos de IA.`);
+    setShowAutoPlan(false);
+  };
+
+  const currentPlannedDays = new Set(visibleItems.map((item) => item.day)).size;
+  const contentsToAdd = Math.max(0, autoDays - currentPlannedDays);
 
   return (
     <div className="page-content inner-page planner-page">
@@ -1626,10 +1660,23 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
         title="Planifica con intención"
         description="Organiza tu semana y mantén una presencia constante sin improvisar."
       >
-        <button className="primary-button" onClick={() => openNewContent()}>
-          <Plus size={17} /> Nuevo contenido
-        </button>
+        <div className="planner-create-actions">
+          <button className="secondary-button" onClick={() => setShowAutoPlan(true)}>
+            <Sparkles size={17} /> Crear mi semana
+          </button>
+          <button className="primary-button" onClick={() => openNewContent()}>
+            <Plus size={17} /> Nuevo contenido
+          </button>
+        </div>
       </ViewIntro>
+
+      {planNotice && (
+        <div className="auto-plan-notice" role="status">
+          <CheckCircle2 size={17} />
+          <span>{planNotice}</span>
+          <button type="button" aria-label="Cerrar aviso" onClick={() => setPlanNotice("")}><X size={15} /></button>
+        </div>
+      )}
 
       <section className="planner-toolbar">
         <div className="week-switcher">
@@ -1725,6 +1772,76 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
         </article>
       </section>
 
+      {showAutoPlan && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAutoPlan(false)}>
+          <section
+            className="small-modal auto-plan-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Crear semana automática"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <span><Sparkles size={14} /> PLAN GRATUITO</span>
+                <h2>¿Cuánto puedes publicar?</h2>
+              </div>
+              <button type="button" aria-label="Cerrar plan automático" onClick={() => setShowAutoPlan(false)}><X size={20} /></button>
+            </div>
+            <p className="auto-plan-help">
+              RomaCrece completará la semana del {calendarWeek.label} usando primero las ideas que te gustaron.
+            </p>
+
+            <fieldset className="auto-plan-fieldset">
+              <legend>Días disponibles esta semana</legend>
+              <div className="auto-day-options">
+                {([2, 3, 4, 5] as const).map((days) => (
+                  <button
+                    type="button"
+                    className={autoDays === days ? "active" : ""}
+                    aria-pressed={autoDays === days}
+                    key={days}
+                    onClick={() => setAutoDays(days)}
+                  >
+                    <strong>{days}</strong>
+                    <span>{days === 2 ? "Tranquila" : days === 3 ? "Constante" : days === 4 ? "Activa" : "Intensa"}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <div className="form-row auto-plan-fields">
+              <label className="form-field">
+                <span>Objetivo principal</span>
+                <select value={autoGoal} onChange={(event) => setAutoGoal(event.target.value as ContentIdea["goal"])}>
+                  <option>Atraer</option><option>Educar</option><option>Vender</option><option>Fidelizar</option>
+                </select>
+              </label>
+              <label className="form-field">
+                <span>Hora preferida</span>
+                <input type="time" value={autoTime} onChange={(event) => setAutoTime(event.target.value)} />
+              </label>
+            </div>
+
+            <div className="auto-plan-preview">
+              <CalendarCheck2 size={20} />
+              <div>
+                <strong>{contentsToAdd > 0 ? `Añadiremos ${contentsToAdd} ${contentsToAdd === 1 ? "contenido" : "contenidos"}` : "Tu semana ya está cubierta"}</strong>
+                <span>{currentPlannedDays} días ya tienen contenido · nunca borraremos lo que planificaste</span>
+              </div>
+            </div>
+            <div className="auto-plan-free"><Zap size={15} /> Usa plantillas locales y tu memoria guardada. Coste de IA: 0.</div>
+
+            <div className="planner-modal-actions">
+              <button type="button" className="secondary-button" onClick={() => setShowAutoPlan(false)}>Cancelar</button>
+              <button type="button" className="primary-button" onClick={createAutomaticWeek}>
+                <Sparkles size={17} /> Preparar mi semana
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showAdd && (
         <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAdd(false)}>
           <section
@@ -1780,7 +1897,7 @@ function PlannerView({ items, onUpdate }: { items: PlannedContent[]; onUpdate: (
             <div className="planner-modal-actions">
               {editingId !== null && (
                 <button className="delete-button" onClick={() => {
-                  onUpdate(plannedItems.filter((item) => item.id !== editingId));
+                  onUpdate({ ...data, plannedItems: plannedItems.filter((item) => item.id !== editingId) });
                   setShowAdd(false);
                 }}>Eliminar</button>
               )}
@@ -2388,7 +2505,7 @@ export default function Home() {
           {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "ideas" && <IdeasView data={data} onPlan={planIdea} onUpdate={updateData} />}
-          {activeView === "planificador" && <PlannerView items={data.plannedItems ?? []} onUpdate={(items) => updateData({ ...data, plannedItems: items })} />}
+          {activeView === "planificador" && <PlannerView data={data} onUpdate={updateData} />}
           {activeView === "resultados" && <ResultsView data={data} onUpdate={updateData} />}
         </div>
       </div>

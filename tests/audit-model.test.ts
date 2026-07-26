@@ -5,6 +5,7 @@ import {
   calculateChange,
   buildWeeklyAdvisor,
   generateContentIdea,
+  generateFreeWeeklyPlan,
   initialAuditAnswers,
   isPlannedForWeek,
   normalizeAuditAnswers,
@@ -241,4 +242,58 @@ test("la asesora reconoce publicaciones y resultados completados", () => {
   assert.equal(advisor.completed, 2);
   assert.equal(advisor.actions.find((item) => item.id === "content")?.done, true);
   assert.equal(advisor.actions.find((item) => item.id === "results")?.done, true);
+});
+
+test("crea una semana local sin llamar a servicios externos", () => {
+  const plan = generateFreeWeeklyPlan(createAdvisorData(), {
+    daysPerWeek: 3,
+    time: "18:30",
+    goal: "Vender",
+  }, new Date(2026, 6, 25, 12), 1000);
+
+  assert.equal(plan.newItems.length, 3);
+  assert.equal(plan.newIdeas.length, 3);
+  assert.equal(new Set(plan.newItems.map((item) => item.day)).size, 3);
+  assert.ok(plan.newItems.every((item) => item.weekStart === "2026-07-20"));
+  assert.ok(plan.newItems.every((item) => item.time === "18:30"));
+  assert.equal(new Set(plan.newItems.map((item) => item.title)).size, 3);
+});
+
+test("reutiliza ideas aprobadas y evita las rechazadas", () => {
+  const data = createAdvisorData();
+  const useful = generateContentIdea(data.business, "Vender", 201);
+  const rejected = generateContentIdea(data.business, "Atraer", 202);
+  data.ideas = [
+    { ...useful, id: 501, feedback: "useful" },
+    { ...rejected, id: 502, feedback: "not_useful", feedbackReason: "No va con mi negocio" },
+  ];
+
+  const plan = generateFreeWeeklyPlan(data, {
+    daysPerWeek: 2,
+    time: "19:00",
+    goal: "Vender",
+  }, new Date(2026, 6, 25, 12), 2000);
+
+  assert.equal(plan.newItems[0].sourceIdeaId, 501);
+  assert.ok(plan.newItems.every((item) => item.sourceIdeaId !== 502));
+  assert.equal(plan.newIdeas.length, 1);
+});
+
+test("completa el calendario sin borrar ni duplicar días existentes", () => {
+  const data = createAdvisorData();
+  data.plannedItems = [
+    { id: 1, weekStart: "2026-07-20", day: 0, time: "19:00", format: "Reel", title: "Contenido existente 1", status: "Idea", color: "#e83387" },
+    { id: 2, weekStart: "2026-07-20", day: 4, time: "19:00", format: "Carrusel", title: "Contenido existente 2", status: "Borrador", color: "#7c5ce5" },
+  ];
+
+  const plan = generateFreeWeeklyPlan(data, {
+    daysPerWeek: 3,
+    time: "20:00",
+    goal: "Educar",
+  }, new Date(2026, 6, 25, 12), 3000);
+
+  assert.equal(plan.newItems.length, 1);
+  assert.equal(plan.plannedDays, 3);
+  assert.notEqual(plan.newItems[0].day, 0);
+  assert.notEqual(plan.newItems[0].day, 4);
 });

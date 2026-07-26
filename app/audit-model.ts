@@ -142,6 +142,20 @@ export type WeeklyAdvisor = {
   actions: WeeklyAdvisorAction[];
 };
 
+export type FreeWeeklyPlanSettings = {
+  daysPerWeek: 2 | 3 | 4 | 5;
+  time: string;
+  goal: ContentIdea["goal"];
+  weekOffset?: number;
+};
+
+export type FreeWeeklyPlan = {
+  newIdeas: ContentIdea[];
+  newItems: PlannedContent[];
+  targetDays: number;
+  plannedDays: number;
+};
+
 export const STORAGE_KEY = "romacrece:mvp:v1";
 
 export function weekStartFromOffset(offset = 0, referenceDate = new Date()): string {
@@ -512,5 +526,81 @@ export function generateContentIdea(business: BusinessProfile, goal: ContentIdea
     feedback: null,
     feedbackReason: "",
     createdAt: new Date().toISOString(),
+  };
+}
+
+const weeklyDayPatterns: Record<FreeWeeklyPlanSettings["daysPerWeek"], number[]> = {
+  2: [1, 4],
+  3: [0, 2, 4],
+  4: [0, 2, 4, 6],
+  5: [0, 1, 2, 3, 4],
+};
+
+const weeklyGoalRotation: Record<ContentIdea["goal"], ContentIdea["goal"][]> = {
+  Atraer: ["Atraer", "Educar", "Atraer", "Vender", "Fidelizar"],
+  Educar: ["Educar", "Atraer", "Educar", "Vender", "Fidelizar"],
+  Vender: ["Vender", "Educar", "Vender", "Atraer", "Fidelizar"],
+  Fidelizar: ["Fidelizar", "Educar", "Fidelizar", "Vender", "Atraer"],
+};
+
+export function generateFreeWeeklyPlan(
+  data: RomaCreceData,
+  settings: FreeWeeklyPlanSettings,
+  referenceDate = new Date(),
+  seed = Date.now(),
+): FreeWeeklyPlan {
+  const weekOffset = settings.weekOffset ?? 0;
+  const weekStart = weekStartFromOffset(weekOffset, referenceDate);
+  const currentPlan = (data.plannedItems ?? []).filter((item) =>
+    isPlannedForWeek(item, weekStart, weekOffset));
+  const existingDays = new Set(currentPlan.map((item) => item.day));
+  const candidateDays = [
+    ...weeklyDayPatterns[settings.daysPerWeek],
+    ...[0, 1, 2, 3, 4, 5, 6],
+  ].filter((day, index, days) => !existingDays.has(day) && days.indexOf(day) === index);
+  const neededDays = Math.max(0, settings.daysPerWeek - existingDays.size);
+  const daysToPlan = candidateDays.slice(0, neededDays);
+  const usedTitles = new Set(currentPlan.map((item) => item.title));
+  const linkedIdeaIds = new Set(currentPlan.map((item) => item.sourceIdeaId).filter((id): id is number => id !== null && id !== undefined));
+  const reusableIdeas = (data.ideas ?? [])
+    .filter((idea) => (idea.feedback === "useful" || idea.saved) && idea.feedback !== "not_useful" && !linkedIdeaIds.has(idea.id) && !usedTitles.has(idea.title))
+    .sort((a, b) => Number(b.feedback === "useful") - Number(a.feedback === "useful") || b.score - a.score);
+  const goalRotation = weeklyGoalRotation[settings.goal];
+  const newIdeas: ContentIdea[] = [];
+  const newItems: PlannedContent[] = [];
+
+  daysToPlan.forEach((day, index) => {
+    const goal = goalRotation[index % goalRotation.length];
+    const matchingIndex = reusableIdeas.findIndex((idea) => idea.goal === goal);
+    const reusableIndex = matchingIndex >= 0 ? matchingIndex : reusableIdeas.length > 0 ? 0 : -1;
+    const reusedIdea = reusableIndex >= 0 ? reusableIdeas.splice(reusableIndex, 1)[0] : undefined;
+    let idea = reusedIdea ?? generateContentIdea(data.business, goal, seed * 10 + index);
+    let attempt = 1;
+    while (!reusedIdea && usedTitles.has(idea.title) && attempt < 6) {
+      idea = generateContentIdea(data.business, goal, seed * 10 + index + attempt);
+      attempt += 1;
+    }
+    if (!reusedIdea) newIdeas.push(idea);
+    usedTitles.add(idea.title);
+
+    newItems.push({
+      id: seed * 100 + index,
+      week: weekOffset,
+      weekStart,
+      sourceIdeaId: idea.id,
+      day,
+      time: settings.time,
+      format: idea.format,
+      title: idea.title,
+      status: "Idea",
+      color: idea.color,
+    });
+  });
+
+  return {
+    newIdeas,
+    newItems,
+    targetDays: settings.daysPerWeek,
+    plannedDays: Math.min(settings.daysPerWeek, existingDays.size + daysToPlan.length),
   };
 }

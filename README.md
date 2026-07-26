@@ -19,6 +19,7 @@ La versión actual utiliza los datos registrados por cada negocio. Incluye:
 - Memoria basada en ideas aceptadas o rechazadas, contenido publicado y resultados semanales.
 - Calendario con fechas reales y relación entre cada idea, publicación y mejor resultado.
 - Asesora semanal gratuita que convierte los datos guardados en tres acciones concretas.
+- Plan semanal automático de 2 a 5 días, creado sin consumir inteligencia artificial.
 - Diseño adaptable a computadoras y móviles.
 
 Aplicación publicada:
@@ -152,6 +153,16 @@ principal oportunidad de la auditoría y registro de resultados. Este cálculo s
 hace en el dispositivo con los datos ya guardados, por lo que no consume Gemini
 ni necesita un servicio adicional. El progreso cambia automáticamente cuando
 se publica contenido, mejora la auditoría o se registra la semana.
+
+### Plan semanal gratuito
+
+Desde **Planificador → Crear mi semana**, la usuaria elige cuántos días puede
+publicar, el objetivo principal y una hora. RomaCrece completa únicamente los
+días vacíos, reutiliza primero las ideas marcadas como útiles o guardadas y
+crea el resto con plantillas locales adaptadas al negocio.
+
+El proceso nunca borra lo que ya estaba planificado y no realiza llamadas a
+Gemini, por lo que puede utilizarse sin créditos ni costes adicionales.
 
 Para que la confirmación por correo regrese a la aplicación, configura en
 **Supabase → Authentication → URL Configuration**:
