@@ -141,11 +141,17 @@ Deno.serve(async (request: Request) => {
     if (linkedUser.user?.email) loginEmail = linkedUser.user.email;
   }
 
+  // generateLink crea la cuenta de Auth si no existe, y el trigger
+  // handle_new_user() de la base responde creando un negocio "Pendiente de
+  // completar". El negocio ya existe (es business.id), asi que hay que pedirle
+  // al trigger que se salte esta cuenta tecnica.
   const { data: link, error: linkError } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: loginEmail,
     options: {
       data: {
+        skip_negocio_autocreate: true,
+        roma_account_type: "romacrece_business",
         negocio_id: business.id,
         negocio_slug: business.slug,
         negocio_nombre: business.nombre,
