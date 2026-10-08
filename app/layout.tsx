@@ -33,9 +33,9 @@ export const metadata: Metadata = {
     images: ["https://tusalon.github.io/RomaCrece/og.png"],
   },
   icons: {
-    icon: "/icons/icon-192x192.png",
-    shortcut: "/icons/icon-192x192.png",
-    apple: "/icons/icon-192x192.png",
+    icon: "/icons/favicon-32.png",
+    shortcut: "/icons/favicon-32.png",
+    apple: "/icons/apple-touch-icon.png",
   },
   manifest: "/manifest.webmanifest",
 };
