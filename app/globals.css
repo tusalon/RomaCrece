@@ -5382,3 +5382,13 @@ textarea:focus-visible {
   padding-bottom: 12px;
   border-bottom: 1px solid var(--line);
 }
+
+.roma-mark {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.onboarding-promise > .roma-mark {
+  margin-bottom: 16px;
+}

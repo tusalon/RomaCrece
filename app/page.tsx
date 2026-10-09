@@ -314,7 +314,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
       <section className="onboarding-brand-panel">
         <Brand />
         <div className="onboarding-promise">
-          <span className="onboarding-kicker"><Sparkles size={15} /> PRIMER DIAGNÓSTICO</span>
+          <RomaMark size={92} />
           <h1>Convierte tu presencia digital en un plan claro para crecer.</h1>
           <p>
             Cuéntanos cómo funciona hoy tu negocio. RomaCrece organizará tus
@@ -696,6 +696,12 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+/** Roma, la pug de RservasRoma: aparece en bienvenidas y pantallas vacías, nunca de adorno. */
+function RomaMark({ size = 72 }: { size?: number }) {
+  // eslint-disable-next-line @next/next/no-img-element -- la web es Vite, no Next
+  return <img className="roma-mark" src={`${import.meta.env.BASE_URL}roma.svg`} alt="" width={size} />;
+}
+
 function greeting(hour = new Date().getHours()) {
   return hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
 }
@@ -911,7 +917,7 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
             ))}
             {currentPlan.length === 0 && (
               <div className="home-empty-state">
-                <CalendarDays size={22} />
+                <RomaMark size={44} />
                 <div><strong>Tu calendario está vacío</strong><span>Añade tu primera idea para comenzar.</span></div>
                 <button onClick={() => onNavigate("planificador")}>Planificar</button>
               </div>
@@ -1510,7 +1516,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
         })}
         {visibleIdeas.length === 0 && !isGenerating && (
           <div className="ideas-empty-state">
-            <Sparkles size={24} />
+            <RomaMark size={84} />
             <h2>Aún no tienes ideas para {goal.toLowerCase()}</h2>
             <p>RomaCrece usará lo que ya sabe de tu negocio para crear la primera.</p>
             <button className="primary-button" onClick={() => generateIdea()}>Crear una idea</button>
@@ -2078,7 +2084,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
 
       {!current ? (
         <section className="weekly-empty">
-          <div className="weekly-empty-icon"><ChartNoAxesCombined size={28} /></div>
+          <div className="weekly-empty-icon"><RomaMark size={64} /></div>
           <div>
             <span>PRIMER PASO</span>
             <h2>Convierte tus números en decisiones</h2>
