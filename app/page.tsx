@@ -326,7 +326,7 @@ function Onboarding({ initialData, onComplete }: { initialData?: RomaCreceData; 
             <span><CheckCircle2 size={17} /> Datos guardados en tu cuenta</span>
           </div>
         </div>
-        <small>RomaCrece · Parte del ecosistema RomaHub</small>
+        <small>RomaCrece · de RservasRoma</small>
       </section>
 
       <section className="onboarding-form-panel">
@@ -659,7 +659,7 @@ function Header({ data, openMenu, onNavigate }: { data: RomaCreceData; openMenu:
       <div className="topbar-actions">
         <div className="instagram-pill">
           <Instagram size={17} />
-          <span>@{data.business.instagram}</span>
+          <span>@{data.business.instagram.replace(/^@+/, "")}</span>
           <Check size={13} />
         </div>
         <button className="icon-button" aria-label="Notificaciones" aria-expanded={showNotifications} onClick={() => setShowNotifications((value) => !value)}>
@@ -694,6 +694,10 @@ function ScoreRing({ score }: { score: number }) {
       </div>
     </div>
   );
+}
+
+function greeting(hour = new Date().getHours()) {
+  return hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
 }
 
 function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavigate: (view: View) => void; onUpdate: (data: RomaCreceData) => void }) {
@@ -733,11 +737,7 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
     <div className="page-content">
       <section className="welcome-row">
         <div>
-          <div className="eyebrow">
-            <span className="status-dot" />
-            TU CENTRO DE CRECIMIENTO
-          </div>
-          <h1>Buenos días, {data.business.name} <span>✦</span></h1>
+          <h1>{greeting()}, {data.business.name}</h1>
           <p>
             Tu objetivo es {data.business.objective.toLowerCase()}. Hoy tienes una
             oportunidad clara para fortalecer tu presencia digital.
@@ -951,12 +951,10 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
 }
 
 function ViewIntro({
-  eyebrow,
   title,
   description,
   children,
 }: {
-  eyebrow: string;
   title: string;
   description: string;
   children?: React.ReactNode;
@@ -964,10 +962,6 @@ function ViewIntro({
   return (
     <section className="view-intro">
       <div>
-        <div className="eyebrow">
-          <span className="status-dot" />
-          {eyebrow}
-        </div>
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
@@ -1029,7 +1023,6 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
   return (
     <div className="page-content inner-page">
       <ViewIntro
-        eyebrow="DIAGNÓSTICO INTELIGENTE"
         title="Auditoría de tu Instagram"
         description="Descubre qué está funcionando y qué debes cambiar para atraer más reservas."
       >
@@ -1097,8 +1090,8 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
           <div className="ai-audit-icon"><WandSparkles size={24} /></div>
           <div>
             <span>ANÁLISIS PERSONALIZADO</span>
-            <h2>{analysis ? "Tus datos cambiaron: actualicemos el análisis" : "Deja que Gemini convierta tus datos en un plan semanal"}</h2>
-            <p>{analysis ? "Gemini volverá a revisar la auditoría para que las recomendaciones coincidan con tus respuestas nuevas." : "Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad."}</p>
+            <h2>{analysis ? "Tus datos cambiaron: actualicemos el análisis" : "Convierte tus datos en un plan semanal"}</h2>
+            <p>{analysis ? "RomaCrece volverá a revisar la auditoría para que las recomendaciones coincidan con tus respuestas nuevas." : "Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad."}</p>
             {aiState === "error" && <small role="alert">{aiError}</small>}
           </div>
           <button className="primary-button" onClick={requestAnalysis} disabled={aiState === "loading"}>
@@ -1114,7 +1107,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
             <h2>Las 3 mejoras con mayor impacto</h2>
             <p>Ordenadas según su potencial para generar clientes</p>
           </div>
-          <span className="analysis-label"><Sparkles size={14} /> {analysis ? "Analizado con Gemini" : "Análisis inicial"}</span>
+          <span className="analysis-label"><Sparkles size={14} /> {analysis ? "Análisis actualizado" : "Análisis inicial"}</span>
         </div>
         <div className="findings-grid">
           {findings.map((finding, index) => {
@@ -1177,7 +1170,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       {analysis && (
         <section className="ai-week-plan">
           <div className="section-heading">
-            <div><h2>Tu plan para esta semana</h2><p>Acciones creadas por Gemini con los datos de tu negocio</p></div>
+            <div><h2>Tu plan para esta semana</h2><p>Acciones creadas con los datos de tu negocio</p></div>
             <span className="analysis-label"><Sparkles size={14} /> 1 análisis semanal</span>
           </div>
           <div className="ai-week-grid">
@@ -1406,7 +1399,6 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
     return (
       <div className="page-content inner-page">
         <ViewIntro
-          eyebrow="ESTUDIO DE CONTENIDO"
           title="Reels listos para grabar"
           description="Elige uno, grábalo con tu móvil y publícalo. Todo el texto ya está escrito."
         >
@@ -1420,7 +1412,6 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
   return (
     <div className="page-content inner-page">
       <ViewIntro
-        eyebrow="ESTUDIO DE CONTENIDO"
         title="Ideas que conectan y convierten"
         description={`Contenido personalizado para ${data.business.name}, listo para adaptar y publicar.`}
       >
@@ -1521,7 +1512,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
           <div className="ideas-empty-state">
             <Sparkles size={24} />
             <h2>Aún no tienes ideas para {goal.toLowerCase()}</h2>
-            <p>Gemini usará la memoria de tu negocio para crear la primera.</p>
+            <p>RomaCrece usará lo que ya sabe de tu negocio para crear la primera.</p>
             <button className="primary-button" onClick={() => generateIdea()}>Crear una idea</button>
           </div>
         )}
@@ -1684,7 +1675,6 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   return (
     <div className="page-content inner-page planner-page">
       <ViewIntro
-        eyebrow="CALENDARIO DE CONTENIDO"
         title="Planifica con intención"
         description="Organiza tu semana y mantén una presencia constante sin improvisar."
       >
@@ -2070,7 +2060,6 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   return (
     <div className="page-content inner-page">
       <ViewIntro
-        eyebrow="SEGUIMIENTO SEMANAL"
         title="¿Cómo te fue esta semana?"
         description="Anota tus números una vez por semana. RomaCrece guarda el historial y te muestra qué mejoró."
       >

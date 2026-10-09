@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "npm:@google/genai@2.13.0";
 import { createClient } from "npm:@supabase/supabase-js@2.110.8";
 import { evaluateSubscription } from "../_shared/subscription-access.ts";
+import { AI_LIMIT_MESSAGE, clip, clipJson, takeAiQuota } from "../_shared/ai-limits.ts";
 
 const allowedOrigins = new Set([
   "https://tusalon.github.io",
@@ -99,7 +100,7 @@ function geminiErrorResponse(error: unknown) {
   if (status === 429 || detail.includes("resource_exhausted") || detail.includes("quota")) {
     return {
       code: "gemini_quota",
-      error: "Gemini alcanzó el límite gratuito por ahora. Espera unos minutos e inténtalo nuevamente.",
+      error: "Hoy se alcanzó el límite del servicio de IA. Espera unos minutos e inténtalo nuevamente.",
       status: 429,
     };
   }
@@ -112,20 +113,20 @@ function geminiErrorResponse(error: unknown) {
   ) {
     return {
       code: "gemini_configuration",
-      error: "La clave de Gemini no es válida o todavía no tiene permiso para usar la API.",
+      error: "El servicio de IA necesita revisión. Avisa a RservasRoma.",
       status: 503,
     };
   }
   if (status === 404 || detail.includes("not_found") || detail.includes("model not found")) {
     return {
       code: "gemini_model",
-      error: "El modelo de Gemini no está disponible en este momento. Inténtalo nuevamente más tarde.",
+      error: "El servicio de IA no está disponible en este momento. Inténtalo nuevamente más tarde.",
       status: 503,
     };
   }
   return {
     code: "gemini_unavailable",
-    error: "Gemini no pudo completar el análisis ahora. Tu puntuación básica sigue guardada.",
+    error: "No pudimos completar el análisis ahora. Tu puntuación básica sigue guardada.",
     status: 502,
   };
 }
@@ -180,7 +181,7 @@ Deno.serve(async (request: Request) => {
     .maybeSingle();
   if (subscriptionError) return json(request, { error: "No pudimos comprobar tu mensualidad.", code: "subscription_unavailable" }, 503);
   if (!evaluateSubscription(subscription).allowed) {
-    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar Gemini.", code: "subscription_required" }, 403);
+    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar la IA.", code: "subscription_required" }, 403);
   }
 
   let payload: Record<string, unknown>;
@@ -190,9 +191,17 @@ Deno.serve(async (request: Request) => {
     return json(request, { error: "Los datos enviados no son válidos.", code: "invalid_payload" }, 400);
   }
 
-  const business = payload.business as Record<string, unknown> | undefined;
-  const answers = payload.answers as Record<string, unknown> | undefined;
-  const baseAudit = payload.baseAudit as Record<string, unknown> | undefined;
+  // Lo que manda el navegador se recorta antes de llegar al prompt y a la base.
+  const rawBusiness = payload.business as Record<string, unknown> | undefined;
+  const business = rawBusiness && {
+    name: clip(rawBusiness.name, 80),
+    category: clip(rawBusiness.category, 60),
+    city: clip(rawBusiness.city, 60),
+    objective: clip(rawBusiness.objective, 120),
+    instagram: clip(rawBusiness.instagram, 40),
+  };
+  const answers = clipJson(payload.answers, 4000) as Record<string, unknown> | null;
+  const baseAudit = clipJson(payload.baseAudit, 6000) as Record<string, unknown> | null;
   if (!business?.name || !business.instagram || !answers || !baseAudit) {
     return json(request, { error: "Completa primero el cuestionario.", code: "incomplete_audit" }, 400);
   }
@@ -224,6 +233,10 @@ Deno.serve(async (request: Request) => {
     return json(request, { analysis: existing.analysis, cached: true });
   }
 
+  if (!(await takeAiQuota(admin, membership.negocio_id, "audit"))) {
+    return json(request, { error: AI_LIMIT_MESSAGE, code: "daily_limit" }, 429);
+  }
+
   const [ideasMemory, planMemory, metricsMemory] = await Promise.all([
     admin
       .from("content_ideas")
@@ -249,6 +262,7 @@ Deno.serve(async (request: Request) => {
 Eres la estratega de crecimiento de RomaCrece, una aplicación para negocios de belleza.
 Analiza únicamente la información proporcionada. No afirmes que visitaste Instagram y no inventes métricas.
 Escribe en español claro, cálido y práctico para una dueña de negocio no técnica.
+Reglas del producto: no prometas resultados ni cifras, no menciones precios ni publicidad pagada, trabaja solo con contenido orgánico y solo con Instagram, motiva sin juzgar y usa tuteo.
 Evita las palabras engagement, funnel, benchmark y KPI. Convierte cada observación en una acción posible esta semana.
 Personaliza las ideas según especialidad, país, ciudad, tamaño del equipo y objetivo.
 Da especial importancia a bioStatus, bookingMethod, visualConsistency, contentQuality, ctaFrequency, monthlyMessages y monthlyBookings.

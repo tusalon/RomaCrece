@@ -15,7 +15,7 @@ export class AiAnalysisError extends Error {
   code: string;
 
   constructor(payload: AiAuditErrorPayload) {
-    super(payload.error || "No pudimos completar el análisis con Gemini.");
+    super(payload.error || "No pudimos completar el análisis.");
     this.name = "AiAnalysisError";
     this.code = payload.code || "gemini_unavailable";
   }
@@ -51,7 +51,7 @@ export async function generateAiAnalysis(data: RomaCreceData): Promise<AiAuditRe
 
   if (error) throw new AiAnalysisError(await parseFunctionError(error));
   if (!response?.analysis) {
-    throw new AiAnalysisError({ error: "Gemini no devolvió un análisis válido. Inténtalo nuevamente.", code: "invalid_analysis" });
+    throw new AiAnalysisError({ error: "No recibimos un análisis válido. Inténtalo nuevamente.", code: "invalid_analysis" });
   }
   return response;
 }

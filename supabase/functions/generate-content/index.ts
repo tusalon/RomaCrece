@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "npm:@google/genai@2.13.0";
 import { createClient } from "npm:@supabase/supabase-js@2.110.8";
 import { evaluateSubscription } from "../_shared/subscription-access.ts";
+import { AI_LIMIT_MESSAGE, takeAiQuota } from "../_shared/ai-limits.ts";
 
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 const goals = new Set(["Atraer", "Educar", "Vender", "Fidelizar"]);
@@ -67,12 +68,12 @@ function geminiFailure(error: unknown) {
   const status = errorStatus(error);
   const detail = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   if (status === 429 || detail.includes("resource_exhausted") || detail.includes("quota")) {
-    return { status: 429, code: "gemini_quota", error: "Gemini alcanzó el límite gratuito por ahora. Espera unos minutos e inténtalo nuevamente." };
+    return { status: 429, code: "gemini_quota", error: "Hoy se alcanzó el límite del servicio de IA. Espera unos minutos e inténtalo nuevamente." };
   }
   if (status === 401 || status === 403 || detail.includes("api_key_invalid") || detail.includes("api key not valid") || detail.includes("permission_denied")) {
-    return { status: 503, code: "gemini_configuration", error: "La conexión de Gemini necesita revisar su configuración." };
+    return { status: 503, code: "gemini_configuration", error: "El servicio de IA necesita revisión. Avisa a RservasRoma." };
   }
-  return { status: 502, code: "gemini_unavailable", error: "Gemini no pudo crear contenido ahora. Inténtalo nuevamente." };
+  return { status: 502, code: "gemini_unavailable", error: "No pudimos crear contenido ahora. Inténtalo nuevamente." };
 }
 
 Deno.serve(async (request: Request) => {
@@ -111,7 +112,7 @@ Deno.serve(async (request: Request) => {
     .maybeSingle();
   if (subscriptionError) return json(request, { error: "No pudimos comprobar tu mensualidad.", code: "subscription_unavailable" }, 503);
   if (!evaluateSubscription(subscription).allowed) {
-    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar Gemini.", code: "subscription_required" }, 403);
+    return json(request, { error: "Necesitas una mensualidad activa de RservasRoma para usar la IA.", code: "subscription_required" }, 403);
   }
 
   let payload: { goal?: unknown; count?: unknown };
@@ -123,6 +124,10 @@ Deno.serve(async (request: Request) => {
   const goal = typeof payload.goal === "string" && goals.has(payload.goal) ? payload.goal : null;
   const count = Math.max(1, Math.min(5, Number(payload.count) || 1));
   if (!goal) return json(request, { error: "Elige primero el objetivo del contenido.", code: "invalid_goal" }, 400);
+
+  if (!(await takeAiQuota(admin, membership.negocio_id, "content"))) {
+    return json(request, { error: AI_LIMIT_MESSAGE, code: "daily_limit" }, 429);
+  }
 
   const { data: business, error: businessError } = await admin
     .from("businesses")
@@ -153,6 +158,7 @@ Deno.serve(async (request: Request) => {
 Eres la estratega de contenido de RomaCrece para negocios de belleza.
 Crea exactamente ${count} ${count === 1 ? "idea" : "ideas"} con el objetivo "${goal}".
 Escribe en español claro, cálido y listo para usar. No inventes resultados ni digas que viste Instagram.
+Reglas del producto: no prometas resultados ni cifras, no menciones precios ni publicidad pagada, trabaja solo con contenido orgánico y solo con Instagram, motiva sin juzgar y usa tuteo.
 Cada idea debe ser distinta de los títulos anteriores y específica para el negocio.
 Usa la memoria de manera explícita:
 - feedback="useful", saved=true y las ideas que llegaron al calendario son señales positivas.

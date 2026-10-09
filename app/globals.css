@@ -4770,8 +4770,41 @@ button {
     justify-content: space-between;
   }
 
+  /* Móvil: los días se apilan como una agenda en lugar de 7 columnas con desplazamiento lateral */
   .calendar-board {
-    grid-template-columns: repeat(7, 140px);
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+  }
+
+  .calendar-column + .calendar-column {
+    border-top: 1px solid #ece8e5;
+    border-left: 0;
+  }
+
+  .calendar-head {
+    height: auto;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 10px;
+    border-bottom: 0;
+    padding: 12px 14px 0;
+  }
+
+  .calendar-head span {
+    font-size: 14px;
+  }
+
+  .calendar-head strong {
+    margin-top: 0;
+  }
+
+  .calendar-head em {
+    position: static;
+  }
+
+  .calendar-body {
+    min-height: 0;
+    padding: 8px 10px 12px;
   }
 
   .form-row,

@@ -15,7 +15,7 @@ export class AiContentError extends Error {
   code: string;
 
   constructor(payload: ContentErrorPayload) {
-    super(payload.error || "No pudimos crear contenido con Gemini.");
+    super(payload.error || "No pudimos crear contenido.");
     this.name = "AiContentError";
     this.code = payload.code || "content_unavailable";
   }
@@ -47,7 +47,7 @@ export async function generateAiContent(goal: ContentIdea["goal"], count = 1): P
 
   if (error) throw new AiContentError(await parseFunctionError(error));
   if (!data?.ideas?.length) {
-    throw new AiContentError({ error: "Gemini no devolvió ideas válidas. Inténtalo nuevamente.", code: "invalid_content" });
+    throw new AiContentError({ error: "No recibimos ideas válidas. Inténtalo nuevamente.", code: "invalid_content" });
   }
   return data;
 }

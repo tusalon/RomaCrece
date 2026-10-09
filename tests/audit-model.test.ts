@@ -249,7 +249,7 @@ test("crea una semana local sin llamar a servicios externos", () => {
     daysPerWeek: 3,
     time: "18:30",
     goal: "Vender",
-  }, new Date(2026, 6, 25, 12), 1000);
+  }, new Date(2026, 6, 20, 12), 1000);
 
   assert.equal(plan.newItems.length, 3);
   assert.equal(plan.newIdeas.length, 3);
@@ -272,7 +272,7 @@ test("reutiliza ideas aprobadas y evita las rechazadas", () => {
     daysPerWeek: 2,
     time: "19:00",
     goal: "Vender",
-  }, new Date(2026, 6, 25, 12), 2000);
+  }, new Date(2026, 6, 20, 12), 2000);
 
   assert.equal(plan.newItems[0].sourceIdeaId, 501);
   assert.ok(plan.newItems.every((item) => item.sourceIdeaId !== 502));
@@ -290,10 +290,22 @@ test("completa el calendario sin borrar ni duplicar días existentes", () => {
     daysPerWeek: 3,
     time: "20:00",
     goal: "Educar",
-  }, new Date(2026, 6, 25, 12), 3000);
+  }, new Date(2026, 6, 20, 12), 3000);
 
   assert.equal(plan.newItems.length, 1);
   assert.equal(plan.plannedDays, 3);
   assert.notEqual(plan.newItems[0].day, 0);
   assert.notEqual(plan.newItems[0].day, 4);
+});
+
+test("en la semana en curso no propone días que ya pasaron", () => {
+  // 2026-07-23 es jueves: solo quedan jueves (3), viernes (4), sábado (5) y domingo (6).
+  const plan = generateFreeWeeklyPlan(createAdvisorData(), {
+    daysPerWeek: 5,
+    time: "18:00",
+    goal: "Atraer",
+  }, new Date(2026, 6, 23, 12), 4000);
+
+  assert.ok(plan.newItems.length > 0);
+  assert.ok(plan.newItems.every((item) => item.day >= 3), "ningún día anterior al jueves");
 });

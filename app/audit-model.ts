@@ -554,10 +554,12 @@ export function generateFreeWeeklyPlan(
   const currentPlan = (data.plannedItems ?? []).filter((item) =>
     isPlannedForWeek(item, weekStart, weekOffset));
   const existingDays = new Set(currentPlan.map((item) => item.day));
+  // En la semana en curso no se proponen días que ya pasaron (0 = lunes).
+  const firstPlannableDay = weekOffset === 0 ? (referenceDate.getDay() + 6) % 7 : weekOffset < 0 ? 7 : 0;
   const candidateDays = [
     ...weeklyDayPatterns[settings.daysPerWeek],
     ...[0, 1, 2, 3, 4, 5, 6],
-  ].filter((day, index, days) => !existingDays.has(day) && days.indexOf(day) === index);
+  ].filter((day, index, days) => day >= firstPlannableDay && !existingDays.has(day) && days.indexOf(day) === index);
   const neededDays = Math.max(0, settings.daysPerWeek - existingDays.size);
   const daysToPlan = candidateDays.slice(0, neededDays);
   const usedTitles = new Set(currentPlan.map((item) => item.title));
