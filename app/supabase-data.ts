@@ -122,6 +122,16 @@ export async function loadCloudData(user: User): Promise<RomaCreceData | null> {
   } as RomaCreceData;
 }
 
+/** Borra de la nube lo que la usuaria ya quitó, sin tocar lo que sigue existiendo. */
+async function removeMissing(table: "content_ideas" | "planned_content", businessId: string, keepIds: number[]) {
+  if (!supabase) return;
+  let query = supabase.from(table).delete().eq("business_id", businessId);
+  const ids = keepIds.filter((id) => Number.isFinite(id));
+  if (ids.length) query = query.not("client_id", "in", `(${ids.join(",")})`);
+  const { error } = await query;
+  if (error) throw error;
+}
+
 export async function saveCloudData(user: User, data: RomaCreceData): Promise<void> {
   if (!supabase) return;
 
@@ -155,10 +165,11 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
     if (auditError) throw auditError;
   }
 
-  const { error: deleteIdeasError } = await supabase.from("content_ideas").delete().eq("business_id", businessId);
-  if (deleteIdeasError) throw deleteIdeasError;
+  // Se guarda primero (upsert por client_id) y solo después se borra lo que ya no existe.
+  // Antes se borraba todo y se volvía a insertar: si la red fallaba entre los dos pasos,
+  // la nube se quedaba sin ideas.
   if (data.ideas?.length) {
-    const { error } = await supabase.from("content_ideas").insert(data.ideas.map((idea) => ({
+    const { error } = await supabase.from("content_ideas").upsert(data.ideas.map((idea) => ({
       business_id: businessId,
       owner_id: user.id,
       client_id: idea.id,
@@ -176,14 +187,13 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       feedback: idea.feedback ?? null,
       feedback_reason: idea.feedbackReason ?? "",
       created_at: idea.createdAt,
-    })));
+    })), { onConflict: "business_id,client_id" });
     if (error) throw error;
   }
+  await removeMissing("content_ideas", businessId, (data.ideas ?? []).map((idea) => idea.id));
 
-  const { error: deletePlannerError } = await supabase.from("planned_content").delete().eq("business_id", businessId);
-  if (deletePlannerError) throw deletePlannerError;
   if (data.plannedItems?.length) {
-    const { error } = await supabase.from("planned_content").insert(data.plannedItems.map((item) => ({
+    const { error } = await supabase.from("planned_content").upsert(data.plannedItems.map((item) => ({
       business_id: businessId,
       owner_id: user.id,
       client_id: item.id,
@@ -196,9 +206,10 @@ export async function saveCloudData(user: User, data: RomaCreceData): Promise<vo
       title: item.title,
       status: item.status,
       color: item.color,
-    })));
+    })), { onConflict: "business_id,client_id" });
     if (error) throw error;
   }
+  await removeMissing("planned_content", businessId, (data.plannedItems ?? []).map((item) => item.id));
 
   if (data.weeklyMetrics?.length) {
     const { error } = await supabase.from("weekly_metrics").upsert(data.weeklyMetrics.map((item) => ({

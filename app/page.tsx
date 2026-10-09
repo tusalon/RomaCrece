@@ -51,6 +51,17 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { Dialog } from "./dialog";
+import { ReelsSection } from "./reels-view";
+import {
+  clearAccessCache,
+  clearPendingSync,
+  hasPendingSync,
+  isNetworkError,
+  markPendingSync,
+  readAccessCache,
+  writeAccessCache,
+} from "./offline-state";
 import {
   STORAGE_KEY,
   buildWeeklyAdvisor,
@@ -60,6 +71,7 @@ import {
   generateFreeWeeklyPlan,
   isPlannedForWeek,
   normalizeAuditAnswers,
+  type AiAnalysis,
   type AuditAnswers,
   type BusinessProfile,
   type ContentIdea,
@@ -704,7 +716,7 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
   const interactions = latest ? latest.likes + latest.comments + latest.saves : 0;
   const metricCards = [
     { label: "Alcance", value: latest?.reach, change: metricDifference(latest?.reach ?? 0, previous?.reach, true), icon: Eye, color: "#7c5ce5", tint: "#f0ebff" },
-    { label: "Interacciones", value: latest ? interactions : undefined, change: metricDifference(interactions, previous ? previous.likes + previous.comments + previous.saves : undefined), icon: Users, color: "#e83387", tint: "#fdeaf3" },
+    { label: "Interacciones", value: latest ? interactions : undefined, change: metricDifference(interactions, previous ? previous.likes + previous.comments + previous.saves : undefined), icon: Users, color: "#cf2d5e", tint: "#ffe4eb" },
     { label: "Visitas al perfil", value: latest?.profileVisits, change: metricDifference(latest?.profileVisits ?? 0, previous?.profileVisits), icon: MousePointerClick, color: "#ef8a2e", tint: "#fff2e3" },
     { label: "Reservas desde IG", value: latest?.bookings, change: metricDifference(latest?.bookings ?? 0, previous?.bookings), icon: CalendarDays, color: "#0c9b78", tint: "#e3f7f1" },
   ];
@@ -999,7 +1011,7 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       format: item.format,
       title: item.idea,
       status: "Idea",
-      color: item.format === "Reel" ? "#e83387" : item.format === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
+      color: item.format === "Reel" ? "#cf2d5e" : item.format === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
     };
     const alreadyPlanned = plannedItems.some((planned) => planned.title === plannedItem.title && isPlannedForWeek(planned, plannedItem.weekStart!, 0));
     if (!alreadyPlanned) onUpdate({ ...data, plannedItems: [...plannedItems, plannedItem] });
@@ -1253,14 +1265,7 @@ function IdeaModal({
   };
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={saveAndClose}>
-      <section
-        className="idea-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Editor de contenido"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
+    <Dialog className="idea-modal" label="Editor de contenido" onClose={saveAndClose}>
         <div className="modal-head">
           <div>
             <span><Sparkles size={14} /> CONTENIDO GENERADO</span>
@@ -1354,8 +1359,7 @@ function IdeaModal({
           </button>
         </div>
         {copyState === "error" && <p className="copy-error" role="alert">No pudimos copiar automáticamente. Mantén pulsado el texto para copiarlo.</p>}
-      </section>
-    </div>
+    </Dialog>
   );
 }
 
@@ -1366,6 +1370,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
   const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
   const [generationError, setGenerationError] = useState("");
   const [memorySignals, setMemorySignals] = useState<number | null>(null);
+  const [tab, setTab] = useState<"ideas" | "reels">("ideas");
   const ideas = data.ideas ?? [];
   const visibleIdeas = ideas.filter((idea) => idea.goal === goal && (format === "Todos" || idea.format === format));
   const localMemorySignals = ideas.filter((idea) => idea.saved).length
@@ -1390,6 +1395,28 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
     }
   };
 
+  const tabs = (
+    <div className="ideas-tabs" role="group" aria-label="Tipo de contenido">
+      <button className={tab === "ideas" ? "active" : ""} aria-pressed={tab === "ideas"} onClick={() => setTab("ideas")}>Mis ideas</button>
+      <button className={tab === "reels" ? "active" : ""} aria-pressed={tab === "reels"} onClick={() => setTab("reels")}>Reels listos</button>
+    </div>
+  );
+
+  if (tab === "reels") {
+    return (
+      <div className="page-content inner-page">
+        <ViewIntro
+          eyebrow="ESTUDIO DE CONTENIDO"
+          title="Reels listos para grabar"
+          description="Elige uno, grábalo con tu móvil y publícalo. Todo el texto ya está escrito."
+        >
+          {tabs}
+        </ViewIntro>
+        <ReelsSection salon={data.business.name} instagram={data.business.instagram} canSync={Boolean(supabase) && !isLocalAuditPreview} />
+      </div>
+    );
+  }
+
   return (
     <div className="page-content inner-page">
       <ViewIntro
@@ -1397,6 +1424,7 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
         title="Ideas que conectan y convierten"
         description={`Contenido personalizado para ${data.business.name}, listo para adaptar y publicar.`}
       >
+        {tabs}
         <button className="primary-button" onClick={() => generateIdea()} disabled={isGenerating}>
           {isGenerating ? <LoaderCircle size={17} className="spin" /> : <WandSparkles size={17} />}
           {isGenerating ? "Creando una idea..." : "Generar nueva idea"}
@@ -1571,7 +1599,7 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   const calendarWeek = useMemo(() => getCalendarWeek(weekOffset), [weekOffset]);
   const visibleItems = plannedItems.filter((item) => isPlannedForWeek(item, calendarWeek.weekStart, weekOffset));
   const formatBalance = ([
-    { format: "Reel", color: "#e83387" },
+    { format: "Reel", color: "#cf2d5e" },
     { format: "Carrusel", color: "#7c5ce5" },
     { format: "Historia", color: "#ef8a2e" },
   ] as const).map((entry) => ({
@@ -1617,7 +1645,7 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
       format: newFormat,
       title: newTitle.trim(),
       status: newStatus,
-      color: newFormat === "Reel" ? "#e83387" : newFormat === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
+      color: newFormat === "Reel" ? "#cf2d5e" : newFormat === "Carrusel" ? "#7c5ce5" : "#ef8a2e",
     };
     onUpdate({
       ...data,
@@ -1773,14 +1801,7 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
       </section>
 
       {showAutoPlan && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAutoPlan(false)}>
-          <section
-            className="small-modal auto-plan-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Crear semana automática"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+        <Dialog className="small-modal auto-plan-modal" label="Crear semana automática" onClose={() => setShowAutoPlan(false)}>
             <div className="modal-head">
               <div>
                 <span><Sparkles size={14} /> PLAN GRATUITO</span>
@@ -1838,19 +1859,11 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
                 <Sparkles size={17} /> Preparar mi semana
               </button>
             </div>
-          </section>
-        </div>
+        </Dialog>
       )}
 
       {showAdd && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowAdd(false)}>
-          <section
-            className="small-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label={editingId === null ? "Añadir contenido" : "Editar contenido"}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+        <Dialog className="small-modal" label={editingId === null ? "Añadir contenido" : "Editar contenido"} onClose={() => setShowAdd(false)}>
             <div className="modal-head">
               <div>
                 <span><CalendarCheck2 size={14} /> {editingId === null ? "NUEVO CONTENIDO" : "EDITAR CONTENIDO"}</span>
@@ -1906,8 +1919,7 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
                 {editingId === null ? "Añadir al calendario" : "Guardar cambios"}
               </button>
             </div>
-          </section>
-        </div>
+        </Dialog>
       )}
     </div>
   );
@@ -2035,7 +2047,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
   const comparisonCards = current ? [
     { label: "Seguidores", value: current.followers, change: metricDifference(current.followers, previous?.followers), icon: Users, color: "#ef8a2e" },
     { label: "Alcance", value: current.reach, change: metricDifference(current.reach, previous?.reach, true), icon: Eye, color: "#7c5ce5" },
-    { label: "Mensajes", value: current.messages, change: metricDifference(current.messages, previous?.messages), icon: MessageCircleMore, color: "#e83387" },
+    { label: "Mensajes", value: current.messages, change: metricDifference(current.messages, previous?.messages), icon: MessageCircleMore, color: "#cf2d5e" },
     { label: "Reservas", value: current.bookings, change: metricDifference(current.bookings, previous?.bookings), icon: CalendarCheck2, color: "#0c9b78" },
   ] : [];
 
@@ -2219,15 +2231,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
       )}
 
       {showForm && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowForm(false)}>
-          <form
-            className="small-modal weekly-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Registrar resultados semanales"
-            onSubmit={saveWeek}
-            onMouseDown={(event) => event.stopPropagation()}
-          >
+        <Dialog as="form" className="small-modal weekly-modal" label="Registrar resultados semanales" onClose={() => setShowForm(false)} onSubmit={saveWeek}>
             <div className="modal-head">
               <div>
                 <span><ChartNoAxesCombined size={14} /> SEMANA {week.label.toUpperCase()}</span>
@@ -2298,8 +2302,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
               <button type="button" className="secondary-button" onClick={() => setShowForm(false)}>Cancelar</button>
               <button type="submit" className="primary-button"><Check size={17} /> Guardar mi semana</button>
             </div>
-          </form>
-        </div>
+        </Dialog>
       )}
     </div>
   );
@@ -2315,16 +2318,48 @@ export default function Home() {
   const [accessStatus, setAccessStatus] = useState<RomaCreceAccess | null>(null);
   const [accessCheck, setAccessCheck] = useState(0);
   const [syncState, setSyncState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [offlineAccess, setOfflineAccess] = useState(false);
   const loadedUserId = useRef<string | null>(null);
+  const dataRef = useRef<RomaCreceData | null>(null);
+  useEffect(() => {
+    dataRef.current = data;
+  });
+
+  // Sin Supabase (desarrollo y modo de revisión) no hay sesión que cargue los datos:
+  // se leen del dispositivo para que recargar no los pierda.
+  useEffect(() => {
+    if (supabase && !isLocalAuditPreview) return;
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      // Lectura única al montar, antes de que exista una sesión: no puede caer en bucle.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (saved) setData(JSON.parse(saved) as RomaCreceData);
+    } catch {
+      // datos dañados: se empieza de cero
+    }
+  }, []);
+
+  // Cada vista nueva empieza arriba: antes se quedaba a mitad al cambiar de pestaña.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [activeView]);
 
   useEffect(() => {
     if (!supabase || isLocalAuditPreview) return;
+    const sameUser = (next: User | null) => (previous: User | null) => (previous?.id === next?.id ? previous : next);
     supabase.auth.getSession().then(({ data: sessionData }) => {
-      setUser(sessionData.session?.user ?? null);
+      setUser(sameUser(sessionData.session?.user ?? null));
       setIsReady(!sessionData.session);
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUser = session?.user ?? null;
+      // Renovar el token o repetir el inicio de sesión de la misma usuaria no debe
+      // reiniciar la pantalla ni tirar lo que tenga abierto.
+      if (nextUser && (event === "TOKEN_REFRESHED" || event === "USER_UPDATED" || loadedUserId.current === nextUser.id)) {
+        setUser(sameUser(nextUser));
+        return;
+      }
+      setUser(sameUser(nextUser));
       setAccessStatus(null);
       if (!session) {
         loadedUserId.current = null;
@@ -2342,24 +2377,61 @@ export default function Home() {
     if (!user) return;
     let cancelled = false;
     const load = async () => {
-      setIsReady(false);
+      // Solo la primera carga muestra la pantalla de «cargando»; las comprobaciones
+      // posteriores (al volver a la app) son silenciosas para no tirar el trabajo en curso.
+      if (loadedUserId.current !== user.id) setIsReady(false);
       let localData: RomaCreceData | null = null;
       try {
-        const access = await loadRomaCreceAccess();
+        let access: RomaCreceAccess;
+        try {
+          access = await loadRomaCreceAccess();
+          writeAccessCache(user.id, access);
+          if (!cancelled) setOfflineAccess(false);
+        } catch (accessError) {
+          // Sin red se usa el último acceso comprobado (máximo 72 h). Un «no» del servidor
+          // nunca se salta: solo cuenta como falta de red un fallo de conexión.
+          const cached = isNetworkError(accessError) ? readAccessCache(user.id) : null;
+          if (!cached) throw accessError;
+          access = cached;
+          if (!cancelled) setOfflineAccess(true);
+        }
         if (cancelled) return;
         setAccessStatus(access);
         if (!access.allowed) {
           loadedUserId.current = null;
+          clearAccessCache();
           setData(null);
           return;
         }
 
         if (loadedUserId.current === user.id) return;
         const saved = window.localStorage.getItem(STORAGE_KEY);
-        if (saved) localData = JSON.parse(saved) as RomaCreceData;
-        const cloudData = await loadCloudData(user);
+        if (saved) {
+          try {
+            localData = JSON.parse(saved) as RomaCreceData;
+          } catch {
+            localData = null;
+          }
+        }
+        let cloudData: RomaCreceData | null = null;
+        try {
+          cloudData = await loadCloudData(user);
+        } catch (cloudError) {
+          if (localData && isNetworkError(cloudError)) {
+            // Sin red: se trabaja con lo guardado en el dispositivo y NO se marca como
+            // sincronizado, así no se sube nada hasta poder leer la nube.
+            if (!cancelled) {
+              setData(localData);
+              setOfflineAccess(true);
+              setSyncState("error");
+            }
+            return;
+          }
+          throw cloudError;
+        }
         if (cancelled) return;
-        const nextData = cloudData ?? localData;
+        // Si hay cambios que no llegaron a la nube, mandan los del dispositivo.
+        const nextData = localData && hasPendingSync(user.id) ? localData : (cloudData ?? localData);
         loadedUserId.current = user.id;
         setData(nextData);
         if (nextData) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
@@ -2393,8 +2465,13 @@ export default function Home() {
     const recheckWhenVisible = () => {
       if (document.visibilityState === "visible") setAccessCheck((current) => current + 1);
     };
+    const recheckWhenOnline = () => setAccessCheck((current) => current + 1);
     document.addEventListener("visibilitychange", recheckWhenVisible);
-    return () => document.removeEventListener("visibilitychange", recheckWhenVisible);
+    window.addEventListener("online", recheckWhenOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", recheckWhenVisible);
+      window.removeEventListener("online", recheckWhenOnline);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -2402,7 +2479,10 @@ export default function Home() {
     setSyncState("saving");
     const timer = window.setTimeout(() => {
       saveCloudData(user, data)
-        .then(() => setSyncState("saved"))
+        .then(() => {
+          if (dataRef.current === data) clearPendingSync();
+          setSyncState("saved");
+        })
         .catch((error) => {
           console.error("No se pudieron guardar los datos en Supabase", error);
           setSyncState("error");
@@ -2412,6 +2492,7 @@ export default function Home() {
   }, [accessStatus?.allowed, data, user]);
 
   const completeOnboarding = (nextData: RomaCreceData) => {
+    if (user) markPendingSync(user.id);
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
     setData(nextData);
     setEditingAudit(false);
@@ -2419,14 +2500,25 @@ export default function Home() {
   };
 
   const updateData = (nextData: RomaCreceData) => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    if (user) markPendingSync(user.id);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextData));
+    } catch {
+      // Sin espacio en el dispositivo: los datos siguen en pantalla y se envían a la nube.
+    }
     setData(nextData);
   };
 
   const signOut = async () => {
+    if (user && hasPendingSync(user.id)
+      && !window.confirm("Tienes cambios que todavía no llegaron a la nube. Si sales ahora se pierden. ¿Salir de todos modos?")) {
+      return;
+    }
     await supabase?.auth.signOut();
     window.localStorage.removeItem(STORAGE_KEY);
     window.localStorage.removeItem(AUDIT_DRAFT_KEY);
+    clearAccessCache();
+    clearPendingSync();
     setAccessStatus(null);
   };
 
@@ -2485,6 +2577,7 @@ export default function Home() {
 
   return (
     <main className="app-shell">
+      <a className="skip-link" href="#contenido">Saltar al contenido</a>
       <Sidebar
         business={data.business}
         activeView={activeView}
@@ -2499,9 +2592,9 @@ export default function Home() {
         <div className={`sync-indicator ${syncState}`} role="status">
           {syncState === "saving" && "Guardando…"}
           {syncState === "saved" && "Guardado en la nube"}
-          {syncState === "error" && "Sin conexión · guardado local"}
+          {syncState === "error" && (offlineAccess ? "Sin conexión · tus cambios se enviarán al volver" : "Sin conexión · guardado local")}
         </div>
-        <div className="view-stage" key={activeView}>
+        <div className="view-stage" id="contenido" tabIndex={-1} key={activeView}>
           {activeView === "inicio" && <HomeView data={data} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "auditoria" && <AuditView data={data} onEdit={() => setEditingAudit(true)} onNavigate={setActiveView} onUpdate={updateData} />}
           {activeView === "ideas" && <IdeasView data={data} onPlan={planIdea} onUpdate={updateData} />}

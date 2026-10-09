@@ -192,7 +192,7 @@ ${JSON.stringify(metrics)}
     if (!Array.isArray(generated?.ideas) || generated.ideas.length === 0) throw new Error("Invalid content response");
 
     const baseId = Date.now() * 10;
-    const colors: Record<string, string> = { Reel: "#e83387", Carrusel: "#7c5ce5", Historia: "#ef8a2e" };
+    const colors: Record<string, string> = { Reel: "#cf2d5e", Carrusel: "#7c5ce5", Historia: "#ef8a2e" };
     const nextIdeas = generated.ideas.slice(0, count).map((idea: Record<string, unknown>, index: number) => ({
       id: baseId + index,
       format: idea.format,
@@ -204,7 +204,7 @@ ${JSON.stringify(metrics)}
       hashtags: idea.hashtags,
       reason: idea.reason,
       score: Math.max(84, 94 - index),
-      color: colors[String(idea.format)] ?? "#e83387",
+      color: colors[String(idea.format)] ?? "#cf2d5e",
       saved: false,
       feedback: null,
       feedbackReason: "",

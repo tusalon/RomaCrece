@@ -415,7 +415,7 @@ export function calculateAudit(answers: AuditAnswers): AuditResult {
     { id: "profile", label: "Perfil y biografía", score: profile, color: "#0c9b78" },
     { id: "visual", label: "Identidad visual", score: visual, color: "#7c5ce5" },
     { id: "frequency", label: "Constancia", score: frequency, color: "#ef8a2e" },
-    { id: "content", label: "Calidad y variedad", score: content, color: "#e83387" },
+    { id: "content", label: "Calidad y variedad", score: content, color: "#cf2d5e" },
     { id: "engagement", label: "Interacción", score: engagement, color: "#3a7bd5" },
     { id: "conversion", label: "Mensajes y reservas", score: conversion, color: "#d946ef" },
   ];
@@ -489,12 +489,12 @@ export function businessInitials(name: string): string {
 
 const ideaTemplates: Record<ContentIdea["goal"], Array<Pick<ContentIdea, "format" | "title" | "hook" | "reason" | "color">>> = {
   Atraer: [
-    { format: "Reel", title: "3 errores que pueden arruinar tu próximo resultado", hook: "Si haces una de estas tres cosas, detente...", reason: "Formato pensado para alcance y guardados", color: "#e83387" },
+    { format: "Reel", title: "3 errores que pueden arruinar tu próximo resultado", hook: "Si haces una de estas tres cosas, detente...", reason: "Formato pensado para alcance y guardados", color: "#cf2d5e" },
     { format: "Carrusel", title: "La guía rápida que toda nueva clienta necesita", hook: "Guarda esto antes de elegir tu próximo servicio", reason: "Contenido fácil de compartir", color: "#7c5ce5" },
   ],
   Educar: [
     { format: "Carrusel", title: "Cómo cuidar tus resultados para que duren más", hook: "Tu servicio puede durar mucho más si haces esto...", reason: "Refuerza tu autoridad profesional", color: "#7c5ce5" },
-    { format: "Reel", title: "Mito o realidad: lo que debes saber antes de reservar", hook: "Te dijeron esto muchas veces, pero no es exactamente así...", reason: "Responde una duda frecuente", color: "#e83387" },
+    { format: "Reel", title: "Mito o realidad: lo que debes saber antes de reservar", hook: "Te dijeron esto muchas veces, pero no es exactamente así...", reason: "Responde una duda frecuente", color: "#cf2d5e" },
   ],
   Vender: [
     { format: "Reel", title: "Transformación real: del antes al resultado final", hook: "Mira cómo cambió este resultado en una sola cita...", reason: "Muestra valor y facilita la reserva", color: "#0c9b78" },
