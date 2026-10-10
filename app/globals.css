@@ -3,7 +3,7 @@
 :root {
   --pink: #cf2d5e;
   --pink-dark: #a8204a;
-  --pink-soft: #ffe4eb;
+  --pink-soft: #fff1f4;
   --ink: #101828;
   --ink-2: #25324a;
   --muted: #667085;
@@ -183,7 +183,7 @@ button {
 .brand-parent {
   margin: 1px 0 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -196,7 +196,7 @@ button {
 .nav-label {
   margin: 0 12px 12px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
   letter-spacing: 0.14em;
 }
@@ -233,7 +233,7 @@ button {
 
 .nav-item.active svg {
   color: #ff5aa8;
-  animation: nav-pop 420ms cubic-bezier(0.2, 1.6, 0.4, 1);
+  animation: nav-pop 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .nav-item em {
@@ -242,7 +242,7 @@ button {
   background: rgba(207, 45, 94, 0.22);
   color: #ff77b7;
   padding: 3px 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 800;
 }
@@ -341,15 +341,6 @@ button {
 }
 
 .auth-brand-panel > div > span,
-.auth-kicker {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #ff83bd;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-}
 
 .auth-brand-panel h1 {
   max-width: 590px;
@@ -368,7 +359,7 @@ button {
 
 .auth-brand-panel > small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.08em;
 }
 
@@ -403,7 +394,7 @@ button {
   gap: 8px;
   margin-bottom: 16px;
   color: #475467;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 720;
 }
 
@@ -548,7 +539,7 @@ button {
   border: 0;
   background: transparent;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -564,7 +555,7 @@ button {
   box-shadow: 0 8px 28px rgba(16, 24, 40, 0.1);
   color: var(--muted);
   padding: 7px 11px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   pointer-events: none;
 }
@@ -629,7 +620,7 @@ button {
 
 .profile-copy span {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .sidebar-close,
@@ -685,7 +676,7 @@ button {
   background: #faf9f8;
   padding: 3px 6px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .topbar-actions {
@@ -776,7 +767,7 @@ button {
   gap: 7px;
   margin-bottom: 9px;
   color: #8b5f75;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 780;
   letter-spacing: 0.14em;
 }
@@ -824,7 +815,7 @@ button {
 
 .primary-button {
   min-height: 44px;
-  background: linear-gradient(135deg, #ed3c8f, #d9267b);
+  background: linear-gradient(135deg, #d6335f, #cf2d5e);
   box-shadow: 0 10px 24px rgba(207, 45, 94, 0.23);
   color: white;
   padding: 0 17px;
@@ -866,7 +857,7 @@ button {
   color: #475467;
   padding: 11px;
   text-align: left;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .notification-panel button:hover {
@@ -933,12 +924,12 @@ button {
 
 .view-stage .score-ring {
   animation:
-    score-arrive 900ms cubic-bezier(0.2, 1.4, 0.4, 1) 120ms both,
+    score-arrive 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both,
     score-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .view-stage .large-score {
-  animation: score-arrive 900ms cubic-bezier(0.2, 1.4, 0.4, 1) 120ms both;
+  animation: score-arrive 900ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
 }
 
 .hero-grid {
@@ -982,7 +973,7 @@ button {
   align-items: center;
   gap: 8px;
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -1082,7 +1073,7 @@ button {
   gap: 5px;
   margin-top: 12px;
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1129,7 +1120,7 @@ button {
   background: var(--pink-soft);
   color: var(--pink-dark);
   padding: 6px 9px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -1149,8 +1140,10 @@ button {
   display: block;
   height: 100%;
   border-radius: inherit;
+  width: 100%;
   background: linear-gradient(90deg, var(--pink), #f072ad);
-  transition: width 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-origin: left;
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .advisor-action-list {
@@ -1215,7 +1208,7 @@ button {
 
 .advisor-action-copy strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1225,7 +1218,7 @@ button {
   overflow: hidden;
   margin-top: 2px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -1234,7 +1227,7 @@ button {
 .advisor-action-copy em {
   margin-top: 4px;
   color: #a62d67;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 750;
 }
@@ -1245,7 +1238,7 @@ button {
   gap: 5px;
   margin-top: 11px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -1259,7 +1252,7 @@ button {
   align-items: center;
   gap: 10px;
   color: #95647b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -1292,7 +1285,7 @@ button {
   gap: 12px;
   margin-top: 18px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1308,7 +1301,7 @@ button {
   margin-top: 22px;
   background: var(--ink);
   color: white;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .task-button.done {
@@ -1344,7 +1337,7 @@ button {
 .section-heading p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .text-button {
@@ -1355,7 +1348,7 @@ button {
   background: transparent;
   color: #9d3c6a;
   padding: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1393,7 +1386,7 @@ button {
 
 .metric-copy span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 620;
 }
 
@@ -1419,13 +1412,13 @@ button {
   align-items: center;
   gap: 3px;
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .metric-change small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .lower-grid {
@@ -1461,13 +1454,13 @@ button {
 }
 
 .content-date strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .content-date span {
   margin-top: 3px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -1486,14 +1479,14 @@ button {
 .content-main span {
   margin-bottom: 4px;
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
   text-transform: uppercase;
 }
 
 .content-main strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1503,14 +1496,14 @@ button {
   align-items: center;
   gap: 5px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .content-status {
   justify-self: start;
   border-radius: 20px;
   padding: 5px 9px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1573,7 +1566,7 @@ button {
 
 .streak-top span:not(.flame-wrap) {
   color: #95647b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.11em;
 }
@@ -1615,14 +1608,14 @@ button {
 
 .week-dots small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .streak-card > p {
   margin: 18px 0 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -1635,7 +1628,7 @@ button {
   background: #f8f5fb;
   color: #6d577b;
   padding: 10px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -1651,7 +1644,7 @@ button {
   gap: 6px;
   margin-top: 30px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inner-page {
@@ -1795,13 +1788,13 @@ button {
   align-items: center;
   gap: 6px;
   color: #6544c7;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .audit-benchmark small {
   color: #80748b;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .large-score {
@@ -1813,14 +1806,14 @@ button {
 .large-score > strong {
   margin-top: 12px;
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.14em;
 }
 
 .large-score > span {
   margin-top: 5px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .category-card {
@@ -1840,7 +1833,7 @@ button {
 
 .panel-heading span {
   color: #95647b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -1872,7 +1865,7 @@ button {
 
 .category-row span {
   color: #475467;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 620;
 }
 
@@ -1880,7 +1873,7 @@ button {
   display: block;
   margin-top: 2px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -1929,7 +1922,7 @@ button {
 }
 
 .home-empty-state span {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .home-empty-state button {
@@ -1938,7 +1931,7 @@ button {
   background: var(--pink-soft);
   color: var(--pink-dark);
   padding: 8px 11px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -1954,7 +1947,7 @@ button {
   background: #f5edfb;
   color: #7553ca;
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2005,12 +1998,12 @@ button {
 .finding-level {
   border-radius: 20px;
   padding: 5px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
 .finding-level.tone-high {
-  background: #ffe4eb;
+  background: #fff1f4;
   color: #b31c65;
 }
 
@@ -2043,7 +2036,7 @@ button {
   min-height: 47px;
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -2056,7 +2049,7 @@ button {
   background: transparent;
   color: var(--pink-dark);
   padding: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2091,7 +2084,7 @@ button {
 
 .strengths-copy div > span {
   color: #2f7f6b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -2104,7 +2097,7 @@ button {
 .strengths-copy p {
   margin: 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .strength-pills {
@@ -2123,7 +2116,7 @@ button {
   background: white;
   color: #3d6f62;
   padding: 7px 9px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2152,7 +2145,7 @@ button {
 .goal-filter > span {
   margin-right: 3px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2163,7 +2156,7 @@ button {
   background: transparent;
   color: #667085;
   padding: 8px 11px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 680;
 }
 
@@ -2219,12 +2212,12 @@ button {
 .ideas-summary p {
   margin: 3px 0 0;
   color: #aeb7c5;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ideas-summary > span {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ideas-grid {
@@ -2283,7 +2276,7 @@ button {
   background: #edf8f5;
   color: #08765c;
   padding: 5px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2308,7 +2301,7 @@ button {
 .idea-format {
   display: block;
   margin-top: 18px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -2321,15 +2314,14 @@ button {
 }
 
 .hook-box {
-  border-left: 3px solid #ffccda;
-  border-radius: 0 10px 10px 0;
+  border-radius: 10px;
   background: #fcf7f9;
   padding: 10px 12px;
 }
 
 .hook-box span {
   color: #a86a87;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -2337,7 +2329,7 @@ button {
 .hook-box p {
   margin: 4px 0 0;
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -2348,7 +2340,7 @@ button {
   gap: 6px;
   margin-top: 13px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .idea-reason svg {
@@ -2360,7 +2352,7 @@ button {
   margin-top: 10px;
   border-radius: 999px;
   padding: 5px 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2397,7 +2389,7 @@ button {
   border-radius: 10px;
   background: var(--ink);
   color: white;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2437,7 +2429,7 @@ button {
 .inspiration-strip p {
   margin: 3px 0 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .inspiration-strip > button {
@@ -2447,7 +2439,7 @@ button {
   border: 0;
   background: transparent;
   color: #6544c7;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2487,7 +2479,7 @@ button {
   align-items: center;
   gap: 6px;
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -2526,7 +2518,7 @@ button {
 .editor-field label,
 .form-field > span {
   color: #475467;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2540,7 +2532,7 @@ button {
   background: white;
   color: #344054;
   padding: 11px 12px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -2578,13 +2570,13 @@ button {
 
 .idea-learning strong {
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .idea-learning > div:first-child span,
 .idea-learning small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .idea-learning small {
@@ -2610,7 +2602,7 @@ button {
   background: #fbfaf9;
   color: #475467;
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2630,7 +2622,7 @@ button {
 .feedback-reasons > span {
   width: 100%;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2659,7 +2651,7 @@ button {
   background: #eefaf7;
   color: #08745b;
   padding: 11px 13px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2681,7 +2673,7 @@ button {
 .auto-plan-help {
   margin: 14px 0 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -2694,7 +2686,7 @@ button {
 .auto-plan-fieldset legend {
   margin-bottom: 9px;
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -2731,7 +2723,7 @@ button {
 }
 
 .auto-day-options span {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2760,13 +2752,13 @@ button {
 }
 
 .auto-plan-preview strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .auto-plan-preview span {
   margin-top: 3px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .auto-plan-free {
@@ -2775,7 +2767,7 @@ button {
   gap: 6px;
   margin-top: 10px;
   color: #08745b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -2818,7 +2810,7 @@ button {
 .week-switcher span {
   margin-top: 2px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .planner-stats {
@@ -2835,7 +2827,7 @@ button {
   align-items: center;
   gap: 5px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2887,7 +2879,7 @@ button {
 
 .calendar-head span {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -2904,7 +2896,7 @@ button {
   background: var(--pink);
   color: white;
   padding: 3px 5px;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 800;
 }
@@ -2916,7 +2908,6 @@ button {
 
 .calendar-item {
   border: 1px solid #ebe6e3;
-  border-top: 3px solid;
   border-radius: 12px;
   background: white;
   padding: 10px;
@@ -2935,7 +2926,7 @@ button {
 }
 
 .calendar-item-top > span {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -2951,7 +2942,7 @@ button {
 
 .calendar-item h3 {
   margin: 8px 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -2960,7 +2951,7 @@ button {
   align-items: center;
   gap: 4px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .calendar-status {
@@ -2970,7 +2961,7 @@ button {
   margin-top: 9px;
   border-radius: 10px;
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -2980,7 +2971,7 @@ button {
 }
 
 .calendar-status.listo {
-  background: #ffe4eb;
+  background: #fff1f4;
   color: #ad1d61;
 }
 
@@ -3005,7 +2996,7 @@ button {
   border-radius: 11px;
   background: rgba(255, 255, 255, 0.55);
   color: #b1366e;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -3036,14 +3027,14 @@ button {
   background: #f8f5f2;
   color: #667085;
   padding: 10px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .time-chips strong {
   display: block;
   margin-bottom: 3px;
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .balance-bar {
@@ -3065,7 +3056,7 @@ button {
   gap: 8px;
   margin-top: 9px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -3114,7 +3105,7 @@ button {
   background: #fff2f7;
   color: #9d225c;
   padding: 11px 13px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .planner-modal-actions {
@@ -3131,7 +3122,7 @@ button {
   background: #fff5f5;
   color: #b42318;
   padding: 0 15px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -3186,7 +3177,7 @@ button {
   background: rgba(255, 255, 255, 0.06);
   color: #d0d5dd;
   padding: 9px 11px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .result-win svg {
@@ -3201,7 +3192,7 @@ button {
   display: block;
   margin-top: 3px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .growth-figure {
@@ -3215,7 +3206,7 @@ button {
 
 .growth-figure span {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -3230,7 +3221,7 @@ button {
 
 .growth-figure small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .period-select {
@@ -3250,7 +3241,7 @@ button {
   outline: 0;
   background: transparent;
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -3278,14 +3269,14 @@ button {
   justify-content: center;
   gap: 6px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .copy-error {
   margin: 10px 0 0;
   color: #b54708;
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
 }
 
@@ -3336,7 +3327,7 @@ button {
 
 .weekly-empty span {
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
   letter-spacing: 0.13em;
 }
@@ -3351,7 +3342,7 @@ button {
   max-width: 620px;
   margin: 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.65;
 }
 
@@ -3392,7 +3383,7 @@ button {
 
 .result-metrics small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .result-metrics strong {
@@ -3406,7 +3397,7 @@ button {
   align-items: center;
   gap: 2px;
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 750;
 }
@@ -3444,7 +3435,7 @@ button {
   background: var(--pink-soft);
   color: var(--pink-dark) !important;
   padding: 6px 9px;
-  font-size: 12px !important;
+  font-size: 13px !important;
   letter-spacing: 0 !important;
 }
 
@@ -3531,7 +3522,7 @@ button {
   background: #101828;
   color: white;
   padding: 4px 6px;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   font-weight: 700;
   transform: translateX(-50%);
@@ -3540,7 +3531,7 @@ button {
 .bar-column small {
   margin-top: 8px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -3588,7 +3579,7 @@ button {
 .funnel small {
   margin-top: 1px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .conversion-card > p {
@@ -3598,7 +3589,7 @@ button {
   gap: 5px;
   margin: 17px 0 0;
   color: var(--green);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -3644,7 +3635,7 @@ button {
 
 .insight-card small {
   color: #95647b;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.1em;
 }
@@ -3657,7 +3648,7 @@ button {
 .insight-card p {
   margin: 0;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -3675,7 +3666,7 @@ button {
 
 .weekly-history .panel-heading > small {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .weekly-history-list {
@@ -3705,7 +3696,7 @@ button {
 
 .weekly-history-list span {
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .weekly-history-list strong {
@@ -3716,7 +3707,7 @@ button {
 .weekly-history-list small {
   margin-top: 3px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .weekly-modal {
@@ -3731,7 +3722,7 @@ button {
   background: #f8f5f2;
   color: #667085;
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
 }
 
@@ -3745,7 +3736,7 @@ button {
 .weekly-fieldset legend {
   padding: 15px 8px 0 0;
   color: #344054;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -3811,7 +3802,7 @@ button {
   align-items: center;
   gap: 8px;
   color: #ff83bd;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.14em;
 }
@@ -3857,7 +3848,7 @@ button {
   position: relative;
   z-index: 1;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.08em;
 }
 
@@ -3889,7 +3880,7 @@ button {
   border-radius: 50%;
   background: white;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -3916,7 +3907,7 @@ button {
   gap: 6px;
   margin: -20px 0 24px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .draft-note svg {
@@ -3925,7 +3916,7 @@ button {
 
 .onboarding-heading > span {
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.13em;
 }
@@ -3969,7 +3960,7 @@ button {
   justify-content: space-between;
   gap: 12px;
   color: #475467;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 720;
 }
 
@@ -3980,7 +3971,7 @@ button {
 .field-help {
   margin-top: -2px;
   color: #8b94a4;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
 }
 
@@ -4053,12 +4044,12 @@ button {
 
 .audit-form-tip strong {
   color: var(--ink);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .audit-form-tip small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -4085,7 +4076,7 @@ button {
 .audit-question small {
   margin-top: 4px;
   color: #667085;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -4097,7 +4088,7 @@ button {
   background: #f5f2f0;
   color: #667085;
   padding: 7px 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
 }
 
@@ -4157,7 +4148,7 @@ button {
 
 .audit-ready small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .ai-audit-callout {
@@ -4185,7 +4176,7 @@ button {
 
 .ai-audit-callout span {
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -4201,7 +4192,7 @@ button {
   display: block;
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -4235,7 +4226,7 @@ button {
 
 .ai-week-grid article > span {
   color: var(--pink-dark);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -4250,7 +4241,7 @@ button {
   min-height: 32px;
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -4263,7 +4254,7 @@ button {
   background: transparent;
   color: var(--pink-dark);
   padding: 0;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
   cursor: pointer;
 }
@@ -4639,7 +4630,7 @@ button {
   }
 
   .content-row {
-    grid-template-columns: 48px 3px minmax(0, 1fr) 24px;
+    grid-template-columns: 48px 3px minmax(0, 1fr) 44px;
     gap: 9px;
     padding: 10px 0;
   }
@@ -4681,7 +4672,7 @@ button {
     background: transparent;
     color: #667085;
     padding: 2px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .mobile-nav button.active {
@@ -4901,7 +4892,7 @@ button {
 }
 
 .ideas-empty-state p {
-  font-size: 12px;
+  font-size: 13px;
 }
 
 /* ── Fundamentos (2026-10): foco, menú, toques, poco movimiento ───────────────────── */
@@ -5006,7 +4997,7 @@ textarea:focus-visible {
     background: transparent;
     color: #667085;
     padding: 2px;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .mobile-nav button.active {
@@ -5169,7 +5160,7 @@ textarea:focus-visible {
   flex-wrap: wrap;
   gap: 4px 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -5296,8 +5287,9 @@ textarea:focus-visible {
 .reel-shots li {
   display: grid;
   gap: 2px;
-  border-left: 3px solid var(--pink);
-  padding-left: 12px;
+  border-radius: 10px;
+  background: #faf7f5;
+  padding: 10px 12px;
   font-size: 14px;
 }
 

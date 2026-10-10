@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, InputHTMLAttributes } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -52,7 +52,6 @@ import {
   Zap,
 } from "lucide-react";
 import { Dialog } from "./dialog";
-import { ReelsSection } from "./reels-view";
 import {
   clearAccessCache,
   clearPendingSync,
@@ -191,7 +190,6 @@ function AuthScreen() {
       </section>
       <section className="auth-form-panel">
         <form className="auth-card" onSubmit={submit}>
-          <span className="auth-kicker">ACCESO PARA CLIENTAS</span>
           <h2>Entra a RomaCrece</h2>
           <p>Usa el mismo usuario y contraseña con los que entras al panel de RservasRoma.</p>
           <label>
@@ -240,7 +238,6 @@ function AccessBlocked({
         <div className={`access-blocked-icon ${unavailable ? "warning" : ""}`}>
           {unavailable ? <AlertCircle size={31} /> : <Clock3 size={31} />}
         </div>
-        <span className="auth-kicker">ACCESO PROTEGIDO</span>
         <h1>{unavailable ? "No pudimos comprobar tu acceso" : expired ? "Tu mensualidad está vencida" : "Tu mensualidad no está activa"}</h1>
         <p>
           {unavailable
@@ -696,6 +693,17 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+// Reels bajo demanda. Si no hay conexión y nunca se abrió, se muestra un aviso en vez de romper la app.
+const ReelsSection = lazy(() =>
+  import("./reels-view")
+    .then((module) => ({ default: module.ReelsSection }))
+    .catch(() => ({
+      default: function ReelsOffline() {
+        return <p className="reels-empty">Los reels se descargan la primera vez que los abres. Conéctate un momento e inténtalo de nuevo.</p>;
+      },
+    })),
+);
+
 /** Roma, la pug de RservasRoma: aparece en bienvenidas y pantallas vacías, nunca de adorno. */
 function RomaMark({ size = 72 }: { size?: number }) {
   // eslint-disable-next-line @next/next/no-img-element -- la web es Vite, no Next
@@ -758,10 +766,6 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
       <section className="hero-grid">
         <article className="audit-card">
           <div className="audit-card-copy">
-            <div className="card-kicker">
-              <ScanSearch size={17} />
-              AUDITORÍA DE INSTAGRAM
-            </div>
             <h2>{data.audit.score >= 75 ? "Tu perfil tiene una buena base. Ahora vamos por más." : "Ya sabemos dónde concentrar tus próximos esfuerzos."}</h2>
             <p>
               Detectamos <strong>{data.audit.recommendations.length} oportunidades</strong> para avanzar
@@ -800,7 +804,7 @@ function HomeView({ data, onNavigate, onUpdate }: { data: RomaCreceData; onNavig
             aria-valuemax={advisor.total}
             aria-valuenow={advisor.completed}
           >
-            <span style={{ width: `${(advisor.completed / advisor.total) * 100}%` }} />
+            <span style={{ transform: `scaleX(${advisor.total ? advisor.completed / advisor.total : 0})` }} />
           </div>
           <div className="advisor-action-list">
             {advisor.actions.map((action) => {
@@ -1044,10 +1048,6 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
       <section className="audit-overview">
         <article className="audit-score-card">
           <div>
-            <div className="card-kicker">
-              <Instagram size={17} />
-              PUNTUACIÓN GENERAL
-            </div>
             <h2>{analysis?.headline ?? "Ya tenemos un punto de partida claro"}</h2>
             <p>{analysis?.summary ?? "Tu puntuación usa los números y hábitos que compartiste. Ahora puedes convertirlos en un plan sencillo para esta semana."}</p>
             <div className="audit-benchmark">
@@ -1065,7 +1065,6 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
         <article className="category-card">
           <div className="panel-heading">
             <div>
-              <span>DESGLOSE</span>
               <h3>Rendimiento por área</h3>
             </div>
             <SlidersHorizontal size={18} />
@@ -1095,7 +1094,6 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
         <section className="ai-audit-callout">
           <div className="ai-audit-icon"><WandSparkles size={24} /></div>
           <div>
-            <span>ANÁLISIS PERSONALIZADO</span>
             <h2>{analysis ? "Tus datos cambiaron: actualicemos el análisis" : "Convierte tus datos en un plan semanal"}</h2>
             <p>{analysis ? "RomaCrece volverá a revisar la auditoría para que las recomendaciones coincidan con tus respuestas nuevas." : "Recibirás fortalezas, tres prioridades y acciones adaptadas a tu especialidad."}</p>
             {aiState === "error" && <small role="alert">{aiError}</small>}
@@ -1159,7 +1157,6 @@ function AuditView({ data, onEdit, onNavigate, onUpdate }: { data: RomaCreceData
         <div className="strengths-copy">
           <span className="strength-icon"><Star size={20} /></span>
           <div>
-            <span>TUS FORTALEZAS</span>
             <h3>{analysis?.strengths[0]?.title ?? "Ya tienes una base para seguir creciendo"}</h3>
             <p>{analysis?.strengths[0]?.detail ?? "Mantén lo que funciona mientras aplicas tus tres prioridades."}</p>
           </div>
@@ -1410,7 +1407,9 @@ function IdeasView({ data, onPlan, onUpdate }: { data: RomaCreceData; onPlan: (i
         >
           {tabs}
         </ViewIntro>
-        <ReelsSection salon={data.business.name} instagram={data.business.instagram} canSync={Boolean(supabase) && !isLocalAuditPreview} />
+        <Suspense fallback={<p className="reels-empty" role="status">Cargando los reels…</p>}>
+          <ReelsSection salon={data.business.name} instagram={data.business.instagram} canSync={Boolean(supabase) && !isLocalAuditPreview} />
+        </Suspense>
       </div>
     );
   }
@@ -1739,7 +1738,6 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
                   <article
                     className="calendar-item"
                     key={item.id}
-                    style={{ borderTopColor: item.color }}
                   >
                     <div className="calendar-item-top">
                       <span style={{ color: item.color }}>{item.format}</span>
@@ -1767,7 +1765,6 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
         <article className="optimal-times">
           <div className="panel-heading">
             <div>
-              <span>TUS HORARIOS</span>
               <h3>Horas que has planificado esta semana</h3>
             </div>
             <Clock3 size={19} />
@@ -1780,7 +1777,6 @@ function PlannerView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
         <article className="weekly-balance">
           <div className="panel-heading">
             <div>
-              <span>EQUILIBRIO SEMANAL</span>
               <h3>{visibleItems.length ? "Distribución de tus formatos" : "Añade contenido para ver el equilibrio"}</h3>
             </div>
             <CheckCircle2 size={19} />
@@ -2086,7 +2082,6 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
         <section className="weekly-empty">
           <div className="weekly-empty-icon"><RomaMark size={64} /></div>
           <div>
-            <span>PRIMER PASO</span>
             <h2>Convierte tus números en decisiones</h2>
             <p>{summary} Puedes encontrarlos en las estadísticas de Instagram y también usar valores aproximados.</p>
           </div>
@@ -2096,7 +2091,6 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
         <>
           <section className="results-highlight weekly-highlight">
             <div className="results-copy">
-              <div className="card-kicker"><TrendingUp size={17} /> RESUMEN DE LA SEMANA</div>
               <h2>{summary}</h2>
               <p>
                 Publicaste <strong>{current.posts} publicaciones</strong>, <strong>{current.reels} Reels</strong> y
@@ -2136,7 +2130,6 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
             <article className="reach-chart">
               <div className="panel-heading">
                 <div>
-                  <span>HISTORIAL DE ALCANCE</span>
                   <h3>{chartEntries.length > 1 ? "Así avanza tu cuenta semana a semana" : "Tu historial comienza aquí"}</h3>
                 </div>
                 <span className="chart-total">{chartEntries.length} {chartEntries.length === 1 ? "semana" : "semanas"}</span>
@@ -2163,7 +2156,6 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
             <article className="conversion-card">
               <div className="panel-heading">
                 <div>
-                  <span>CAMINO A LA RESERVA</span>
                   <h3>De Instagram a una clienta</h3>
                 </div>
                 <Target size={19} />
@@ -2210,7 +2202,7 @@ function ResultsView({ data, onUpdate }: { data: RomaCreceData; onUpdate: (data:
       {metrics.length > 0 && (
         <section className="weekly-history">
           <div className="panel-heading">
-            <div><span>TU HISTORIAL</span><h3>Semanas registradas</h3></div>
+            <div><h3>Semanas registradas</h3></div>
             <small>Guardado automáticamente</small>
           </div>
           <div className="weekly-history-list">
